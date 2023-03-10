@@ -163,7 +163,7 @@ local config = {
 	CombatFeedbackFontSmall = GetFont(18, true), -- glancing blow font
 
 	-- Unit Name
-	NamePosition = { "TOPRIGHT", -40, 18 },
+	NamePosition = { "BOTTOMRIGHT", -40, -12 },
 	NameSize = { 250, 18 },
 	NameJustifyH = "RIGHT",
 	NameJustifyV = "TOP",
@@ -209,7 +209,7 @@ local config = {
 
 	-- Auras
 	-----------------------------------------
-	AurasPosition = { "TOPRIGHT", -37, -87 },
+	AurasPosition = { "TOPRIGHT", -42, 36 },
 	AurasSize = { 40*8 - 4, 40*2 - 4 },
 	AurasSizeBoss = { 40*10 - 4, 40*2 - 4 },
 	AuraSize = 36,
@@ -224,7 +224,7 @@ local config = {
 	AurasSpacingX = 4,
 	AurasSpacingY = 4,
 	AurasGrowthX = "LEFT",
-	AurasGrowthY = "DOWN",
+	AurasGrowthY = "UP",
 	AurasTooltipAnchor = "ANCHOR_BOTTOMLEFT",
 	AurasSortMethod = "TIME_REMAINING",
 	AurasSortDirection = "DESCENDING",
@@ -344,18 +344,18 @@ local config = {
 	Boss = {
 
 		-- Health Bar
-		HealthBarSize = { 533, 40 },
+		HealthBarSize = { 385, 37 },
 		HealthBarPosition = { "TOPRIGHT", -27, -27 },
-		HealthBarTexture = GetMedia("hp_boss_bar"),
+		HealthBarTexture = GetMedia("hp_cap_bar"),
 		HealthBarOrientation = "LEFT",
-		HealthBarSparkMap = bigBarSparkMap,
-		HealthBackdropSize = { 694, 190 },
-		HealthBackdropPosition = { "CENTER", -.5, 1 },
-		HealthBackdropTexture = GetMedia("hp_boss_case"),
+		HealthBarSparkMap = barSparkMap,
+		HealthBackdropSize = { 716, 188 },
+		HealthBackdropPosition = { "CENTER", -2, -1 },
+		HealthBackdropTexture = GetMedia("hp_cap_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
 		HealthCastOverlayColor = { 1, 1, 1, .35 },
-		HealthThreatTexture = GetMedia("hp_boss_case_glow"),
+		HealthThreatTexture = GetMedia("hp_cap_case_glow"),
 
 		-- Portrait
 		PortraitBorderTexture = GetMedia("portrait_frame_hi"),
