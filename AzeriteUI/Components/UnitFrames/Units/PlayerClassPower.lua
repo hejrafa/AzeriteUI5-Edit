@@ -90,7 +90,7 @@ local config = {
 				Rotation = degreesToRadians(5)
 			},
 			[2] = {
-				Position = { "TOPLEFT", 51, -73 },
+				Position = { "TOPLEFT", 41, -58 },
 				Size = { 39, 40 }, BackdropSize = { 80, 80 },
 				Texture = GetMedia("point_hearth"), BackdropTexture = GetMedia("point_plate"),
 				Rotation = nil
@@ -415,21 +415,25 @@ local Runes_PostUpdateColor = function(element, r, g, b, color, rune)
 end
 
 local Stagger_SetStatusBarColor = function(element, r, g, b)
-	for i,point in next,element do
+	--for i,point in next,element do
+	for i = 1,3 do
+		local point = element[i]
 		point:SetStatusBarColor(r, g, b)
 	end
 end
 
-local Stagger_PostUpdate = function(element, amount, maxHealth)
+local Stagger_PostUpdate = function(element, cur, max)
 
 	element[1].min = 0
-	element[1].max = maxHealth * .3
+	element[1].max = max * .3
 	element[2].min = element[1].max
-	element[2].max = maxHealth * .6
+	element[2].max = max * .6
 	element[3].min = element[2].max
-	element[3].max = maxHealth
+	element[3].max = max
 
-	for i,point in next,element do
+	--for i,point in next,element do
+	for i = 1,3 do
+		local point = element[i]
 		local value = (cur > point.max) and point.max or (cur < point.min) and point.min or cur
 
 		point:SetMinMaxValues(point.min, point.max)
