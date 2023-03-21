@@ -4,10 +4,22 @@ All notable changes to this project will be documented in this file. Be aware th
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased] 2023-03-18
+## [5.0.52-RC] 2023-03-20
 ### Fixed
-- Fixed where and how the health prediction element was shown on the target unit frame.
+- The backdrop alignment of the health bar on Boss- and Critter frames should once again be correct.
+
+## [5.0.51-RC] 2023-03-20
+### Added
+- Added the chat commands `/disableaurasorting`and `/enableaurasorting` to toggle the time based display of auras. If you like your auras to stay more or less in the same place when you maintain a rotation, regardless of time left, you might want to try the first command. Applies to all unitframes including the nameplates.
+
+### Fixed
+- Latency display should be much more consistent and correct now.
+
+## [5.0.50-RC] 2023-03-20
+### Fixed
 - Changed how the vehicle seat indicator is positioned, to avoid the mega stretched icon in Wrath.
+- Fixed where and how the health prediction element was shown on the target unit frame.
+- Warrior actionbars should finally change when changing stances in Classic Era.
 
 ## [5.0.49-RC] 2023-03-17
 ### Changed
