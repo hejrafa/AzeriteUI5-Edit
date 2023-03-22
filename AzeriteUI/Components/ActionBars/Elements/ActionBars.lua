@@ -218,7 +218,7 @@ local config = {
 	ButtonCooldownCountPosition = { "CENTER", 1, 0 },
 	ButtonCooldownCountJustifyH = "CENTER",
 	ButtonCooldownCountJustifyV = "MIDDLE",
-	ButtonCooldownCountFont = GetFont(16, true),
+	ButtonCooldownCountFont = GetFont(20, true),
 	ButtonCooldownCountColor = { Colors.highlight[1], Colors.highlight[2], Colors.highlight[3], .85 },
 
 	ButtonBorderPosition = { "CENTER", 0, 0 },
