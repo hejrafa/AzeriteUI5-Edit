@@ -54,7 +54,7 @@ local config = {
 	ExtraButtonCooldownCountPosition = { "CENTER", 0, 0 },
 	ExtraButtonCooldownCountJustifyH = "CENTER",
 	ExtraButtonCooldownCountJustifyV = "MIDDLE",
-	ExtraButtonCooldownCountFont = GetFont(22, true),
+	ExtraButtonCooldownCountFont = GetFont(20, true),
 	ExtraButtonCooldownCountColor = { Colors.highlight[1], Colors.highlight[2], Colors.highlight[3], .85 },
 
 	ExtraButtonBorderPosition = { "CENTER", 0, 0 },
