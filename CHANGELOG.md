@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file. Be aware th
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased] 2023-03-21
+## [Unreleased] 2023-03-28
+### Fixed
+- Fixed a typo in the unitframe xml file that may or may not have caused problems.
+
+## [5.0.53-RC] 2023-03-25
+- Updated for WoW 10.0.7.
+
 ### Added
 - Added the social/friends button from Retail to our cogwheel micro menu. You can now open your friends panel without a keybind.
 
