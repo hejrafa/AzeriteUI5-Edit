@@ -186,8 +186,12 @@ ButtonBar.UpdateButtonLayout = function(self)
 
 		if (self.anchor) then
 			self.anchor:SetSize(width, height)
-			self.anchor.Text:SetRotation(0)
-			self.anchor.Title:SetRotation(0)
+
+			-- Text rotation is not available in Classic.
+			if (ns.IsWrath or ns.IsRetail) then
+				self.anchor.Text:SetRotation(0)
+				self.anchor.Title:SetRotation(0)
+			end
 		end
 
 		return
@@ -239,9 +243,9 @@ ButtonBar.UpdateButtonLayout = function(self)
 
 			elseif (grid.growth == "vertical") then
 				if (breakpoint) then
-					if (grid.growthHorizontal == "UP") then
+					if (grid.growthHorizontal == "RIGHT") then
 						offsetX = (buttonWidth + (grid.breakpadding or grid.padding)) * numbreaks
-					elseif (grid.growthHorizontal == "DOWN") then
+					elseif (grid.growthHorizontal == "LEFT") then
 						offsetX = -(buttonWidth + (grid.breakpadding or grid.padding)) * numbreaks
 					end
 					offsetY = 0
