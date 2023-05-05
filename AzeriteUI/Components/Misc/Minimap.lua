@@ -29,6 +29,7 @@ LoadAddOn("Blizzard_TimeManager")
 
 local MinimapMod = ns:NewModule("Minimap", "LibMoreEvents-1.0", "AceHook-3.0", "AceTimer-3.0", "AceConsole-3.0")
 local MFM = ns:GetModule("MovableFramesManager", true)
+local LibDD = LibStub("LibUIDropDownMenu-4.0")
 
 -- Lua API
 local ipairs = ipairs
@@ -99,6 +100,7 @@ local Elements = {}
 ----------------------------------------------------
 local Objects = {}
 if (ns.IsRetail) then
+	Objects.Addons = AddonCompartmentFrame
 	Objects.BorderTop = MinimapCluster.BorderTop
 	Objects.Calendar = GameTimeFrame
 	Objects.Clock = TimeManagerClockButton
@@ -151,6 +153,7 @@ end
 ----------------------------------------------------
 local ObjectOwners = {}
 if (ns.IsRetail) then
+	ObjectOwners.Addons = MinimapCluster
 	ObjectOwners.BorderTop = MinimapCluster
 	ObjectOwners.Calendar = MinimapCluster
 	ObjectOwners.Clock = MinimapCluster
@@ -362,6 +365,7 @@ local Skins = {
 		Version = 1,
 		Shape = "RoundTransparent",
 		HideElements = {
+			Addons = true, -- retail
 			BattleField = false, -- classic + wrath
 			BorderTop = true,
 			BorderClassic = true, -- wrath
@@ -1164,7 +1168,8 @@ MinimapMod.CreateCustomElements = function(self)
 
 	self.mail = mail
 
-	local dropdown = CreateFrame("Frame", ns.Prefix.."MiniMapTrackingDropDown", UIParent, "UIDropDownMenuTemplate")
+	--local dropdown = CreateFrame("Frame", ns.Prefix.."MiniMapTrackingDropDown", UIParent, "UIDropDownMenuTemplate")
+	local dropdown = LibDD:Create_UIDropDownMenu(ns.Prefix.."MiniMapTrackingDropDown", UIParent)
 	dropdown:SetID(1)
 	dropdown:SetClampedToScreen(true)
 	dropdown:Hide()
@@ -1206,7 +1211,7 @@ MinimapMod.CreateCustomElements = function(self)
 			end
 		end
 	else
-		UIDropDownMenu_Initialize(dropdown, MiniMapTrackingDropDown_Initialize, "MENU")
+		LibDD:UIDropDownMenu_Initialize(dropdown, MiniMapTrackingDropDown_Initialize, "MENU")
 	end
 
 	dropdown.noResize = true

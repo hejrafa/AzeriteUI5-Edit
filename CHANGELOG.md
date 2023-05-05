@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file. Be aware th
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [5.0.64-RC] 2023-05-04
+### Changed
+- Updated retail version of the oUF unitframe library.
+- Added buttonPadding and breakPadding arguments to the yet undocumented `/setlayout` command. I'll be creating documentation for this and all other chat commands on the AzeriteUI github pages in the near future!
+
+### Removed
+- Hid the new AddonCompartmentFrame from the minimap. We don't want this.
+
+## [5.0.63-RC] 2023-05-03
+- Bumped for WoW client patch 10.1.0.
+
+### Added
+- Added a command to adjust the button layout of the actionbars.
+
+### Changed
+- Moved the addon's icon texture into the new field in the WoW 10.1.0 TOC structure.
+
+### Fixed
+- Fixed names for raid boss emote slots in WoW 10.1.0.
+
+## [5.0.62-RC] 2023-04-22
+### Fixed
+- Fixed tooltip placement in Classic and Wrath further.
+
+## [5.0.61-RC] 2023-04-21
+### Added
+- Added a custom (yet identical to the default) durability widget, which is movable.
+
+### Fixed
+- Fixed an issue that caused the tooltip to appear in the game's default position when moved away from AzeriteUI's default position. This would primarily happen in Classic, but probably also in the other flavors sometimes too.
+
 ## [5.0.60-RC] 2023-04-20
 ### Changed
 - Debuffs should properly be sorted before buffs on most unit frames now.
