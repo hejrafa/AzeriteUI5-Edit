@@ -19,6 +19,7 @@
 	<!-- ActionButton Libraries -->
 	<Include file="LibKeyBound-1.0\lib.xml"/>
 	<Script file="LibButtonGlow-1.0\LibButtonGlow-1.0.lua"/>
+	<Script file="LibClassicSpellActionCount-1.0\LibClassicSpellActionCount-1.0.lua"/>
 	<Script file="LibActionButton-1.0-GE\LibActionButton-1.0-GE.lua"/>
 
 	<!-- Classic Aura Durations -->
@@ -26,8 +27,11 @@
 	<Script file="LibAuraTypes\LibAuraTypes.lua"/>
 	<Script file="LibSpellLocks\LibSpellLocks.lua"/>
 
+	<!-- Classic Cast Bars -->
+	<Script file="LibClassicCasterino\LibClassicCasterino.lua"/>
+
 	<!-- Classic Heal Predictions -->
-	<Include file="LibHealComm-4.0\LibHealComm-4.0.lua"/>
+	<Script file="LibHealComm-4.0\LibHealComm-4.0.lua"/>
 
 	<!-- UnitFrame Library -->
 	<Include file="oUF_Classic\oUF_Vanilla.xml"/>
