@@ -79,6 +79,15 @@ for i,j in pairs(BAR_TO_ID) do ID_TO_BAR[j] = i end
 -- in the savePosition subtables to allow profiling of all options!
 local barDefaults = {
 	[1] = { --[[ primary action bar ]]
+		numbuttons = 8,
+		layout = "map",
+		maptype = "azerite",
+		visibility = {
+			dragon = true,
+			possess = true,
+			overridebar = true,
+			vehicleui = true
+		},
 		savedPosition = {
 			[MFM:GetDefaultLayout()] = ns:Merge({
 				enabled = true,
@@ -103,6 +112,10 @@ local barDefaults = {
 		}
 	},
 	[2] = { --[[ bottomleft multibar ]]
+		enabled = enabled,
+		numbuttons = 8,
+		layout = "map",
+		maptype = "horizontal",
 		savedPosition = {
 			[MFM:GetDefaultLayout()] = ns:Merge({
 				enabled = false,
@@ -122,7 +135,10 @@ local barDefaults = {
 		}
 	},
 	[3] = { --[[ bottomright multibar ]]
-		enabled = false,
+		enabled = enabled,
+		numbuttons = 8,
+		layout = "map",
+		maptype = "horizontal",
 		savedPosition = {
 			[MFM:GetDefaultLayout()] = ns:Merge({
 				layout = "grid",
@@ -138,7 +154,10 @@ local barDefaults = {
 		}
 	},
 	[4] = { --[[ right multibar 1 ]]
-		enabled = false,
+		enabled = enabled,
+		numbuttons = 8,
+		layout = "map",
+		maptype = "horizontal",
 		savedPosition = {
 			[MFM:GetDefaultLayout()] = ns:Merge({
 				layout = "grid",
@@ -224,7 +243,8 @@ end
 -- Module defaults.
 local defaults = { profile = ns:Merge({
 	enabled = true,
-	bars = ns:Merge({}, barDefaults)
+	enableBarFading = false,
+	bars = barDefaults
 }, ns.moduleDefaults) }
 
 local config = {
@@ -256,7 +276,7 @@ local config = {
 	ButtonCooldownCountPosition = { "CENTER", 1, 0 },
 	ButtonCooldownCountJustifyH = "CENTER",
 	ButtonCooldownCountJustifyV = "MIDDLE",
-	ButtonCooldownCountFont = GetFont(16, true),
+	ButtonCooldownCountFont = GetFont(20, true),
 	ButtonCooldownCountColor = { Colors.highlight[1], Colors.highlight[2], Colors.highlight[3], .85 },
 
 	ButtonBorderPosition = { "CENTER", 0, 0 },
