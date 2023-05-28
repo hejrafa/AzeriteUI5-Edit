@@ -1,6 +1,7 @@
 ## Interface: 100100
-
 ## IconTexture: Interface\Addons\AzeriteUI\Assets\power-crystal-ice-icon.tga
+
+## Plain Title: AzeriteUI 5.0
 ## Title: |cff4488bbAzerite|r |cfffafafaUI|r |cffcccccc5.0|r
 ## Notes: Custom user graphical interface.|n|nDesign by Daniel Troko and Lars Norberg.|nCode by Lars Norberg.|n|n|cff4488ffPayPal|r|cffffffff:|r |n|cffffffffwww.paypal.me/GoldpawsStuff|r|n|n|cff4488ffPatreon|r|cffffffff:|r |n|cffffffffwww.patreon.com/GoldpawsStuff|r
 ## Version: @project-version@
@@ -14,7 +15,7 @@
 ## SavedVariables: AzeriteUI5_DB, AzeriteUI4_DB
 ## OptionalDeps: Ace3, Clique, LibKeyBound-1.0
 
-# TaintLess [22-11-27]
+# TaintLess [23-05-18]
 # https://www.townlong-yak.com/addons/taintless
 TaintLess.xml
 
@@ -23,6 +24,9 @@ Fontstyles.xml
 
 # Libraries
 Libs\Libs.xml
+
+# Addon localization
+Locale\Locale.xml
 
 # Addon core
 Core\Core.xml

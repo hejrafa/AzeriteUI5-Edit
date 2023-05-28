@@ -24,44 +24,39 @@
 
 --]]
 local Addon, ns = ...
+local API = ns.API or {}
+ns.API = API
 
-local LAB = LibStub("LibActionButton-1.0-GE")
-
--- Default button config
-local defaults = {
-	outOfRangeColoring = "button",
-	tooltip = "enabled",
-	showGrid = false,
-	colors = {
-		range = { 1, .15, .15 },
-		mana = { .25, .25, 1 }
-	},
-	hideElements = {
-		macro = true,
-		hotkey = false,
-		equipped = true,
-		border = true,
-		borderIfEmpty = true
-	},
-	keyBoundTarget = false,
-	keyBoundClickButton = "LeftButton",
-	clickOnDown = true,
-	flyoutDirection = "UP"
-}
-
-ns.ActionButtons = {}
-ns.ActionButton = {}
-ns.ActionButton.defaults = defaults
-
-ns.ActionButton.Create = function(id, name, header, buttonConfig)
-
-	local button = LAB:CreateButton(id, name, header, buttonConfig)
-	button:SetAttribute("checkselfcast", true)
-	button:SetAttribute("checkfocuscast", true)
-	button:SetAttribute("checkmouseovercast", true)
-
-	ns.ActionButtons[button] = true
-
-	return button
+-- Global API
+---------------------------------------------------------
+-- Deep table merging without metatables.
+ns.Merge = function(self, target, source)
+	if (type(target) ~= "table") then target = {} end
+	for k,v in pairs(source) do
+		if (type(v) == "table") then
+			target[k] = ns:Merge(target[k], v)
+		elseif (target[k] == nil) then
+			target[k] = v
+		end
+	end
+	return target
 end
 
+-- Deep table copy without metatables.
+ns.Copy = function(self, target, source)
+	if (not source) then
+		source = target
+		target = nil
+	end
+	if (type(target) ~= "table") then
+		target = {}
+	end
+	for k,v in pairs(source) do
+		if (type(v) == "table") then
+			target[k] = ns:Copy(target[k], v)
+		else
+			target[k] = v
+		end
+	end
+	return target
+end

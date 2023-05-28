@@ -30,7 +30,7 @@ ns.callbacks = LibStub("CallbackHandler-1.0"):New(ns, nil, nil, false)
 ns.Hider = CreateFrame("Frame"); ns.Hider:Hide()
 ns.Noop = function() end
 
-ns.SETTINGS_VERSION = 13
+ns.SETTINGS_VERSION = 18
 
 _G[Addon] = ns
 
@@ -47,44 +47,19 @@ local moduleDefaults = {
 ns.moduleDefaults = moduleDefaults
 
 -- Lua API
-local ipairs = ipairs
-local math_max = math.max
-local math_min = math.min
 local next = next
 local string_lower = string.lower
-local tonumber = tonumber
 
 -- Addon API
 local IsAddOnAvailable = ns.API.IsAddOnAvailable
-local SetRelativeScale = ns.API.SetRelativeScale
-local UpdateObjectScales = ns.API.UpdateObjectScales
 
 -- Proxy method to avoid modules using the callback object directly
 ns.Fire = function(self, name, ...)
 	self.callbacks:Fire(name, ...)
 end
 
--- Hard table merging without metatables.
-ns.Merge = function(self, target, source)
-	if (type(target) ~= "table") then target = {} end
-	for k,v in pairs(source) do
-		if (type(v) == "table") then
-			target[k] = self:Merge(target[k], v)
-		elseif (target[k] == nil) then
-			target[k] = v
-		end
-	end
-	return target
-end
-
-ns.ResetBlizzardScale = function(self)
-	if (InCombatLockdown()) then return end
-	SetCVar("useUIScale", 1)
-	SetCVar("uiScale", ns.API.GetDefaultBlizzardScale())
-	ReloadUI() -- need a reset as the above can taint
-end
-
 ns.SwitchUI = function(self, input)
+	if (not self.IsDevelopment) then return end
 	if (not self._ui_list) then
 		-- Create a list of currently installed UIs.
 		self._ui_list = {}
@@ -119,34 +94,38 @@ ns.UpdateSettings = function(self, event, ...)
 	self.callbacks:Fire("Saved_Settings_Updated")
 end
 
-ns.OnEvent = function(self, event, ...)
-	if (event == "PLAYER_ENTERING_WORLD") then
-		self:UnregisterEvent("PLAYER_ENTERING_WORLD", "OnEvent") -- once is enough.
+ns.ResetSettings = function(self, noreload)
+	--local profiles, count = self.db:GetProfiles()
+	--local current = self.db:GetCurrentProfile()
+	self.db:ResetDB() -- Full db reset of all profiles. Destructive operation.
+	self.db.global.version = ns.SETTINGS_VERSION -- Store version in default profile.
+
+	-- We haven't connected the wires to all the modules yet,
+	-- so at this point a forced reload is the only way.
+	if (not noreload) then
+		ReloadUI()
 	end
 end
 
 ns.OnInitialize = function(self)
-
 	self.db = LibStub("AceDB-3.0"):New("AzeriteUI5_DB", defaults, true)
 
 	-- Force a settings reset on backwards incompatible changes.
 	if (self.db.global.version ~= ns.SETTINGS_VERSION) then
-		--local profiles, count = self.db:GetProfiles()
-		--local current = self.db:GetCurrentProfile()
-		self.db:ResetDB() -- Full db reset of all profiles. Destructive operation.
-		self.db.global.version = ns.SETTINGS_VERSION -- Store version in default profile.
+		self:ResetSettings(true) -- no reload needed yet
 	end
 
+	-- Setup the profile and register the callbacks.
 	self.db:SetProfile("Azerite")
-	self.db.profile.layoutversion = nil
-
-
 	self.db.RegisterCallback(self, "OnProfileChanged", "UpdateSettings")
 	self.db.RegisterCallback(self, "OnProfileCopied", "UpdateSettings")
 	self.db.RegisterCallback(self, "OnProfileReset", "UpdateSettings")
 
-	self:RegisterChatCommand("goto", "SwitchUI")
-	self:RegisterChatCommand("resetscale", "ResetBlizzardScale")
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
+	-- Create a command to force a full settings reset manually.
+	self:RegisterChatCommand("resetsettings", function() self:ResetSettings() end)
 
+	-- At this point only I need this one.
+	if (ns.IsDevelopment) then
+		self:RegisterChatCommand("goto", "SwitchUI")
+	end
 end

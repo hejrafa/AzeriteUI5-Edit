@@ -24,10 +24,14 @@
 
 --]]
 local Addon, ns = ...
+local AddonName = GetAddOnMetadata(Addon, "Title")
+
+local L = LibStub("AceLocale-3.0"):GetLocale(Addon)
 
 local MovableFramesManager = ns:NewModule("MovableFramesManager", "LibMoreEvents-1.0", "AceConsole-3.0", "AceHook-3.0")
 local EMP = ns:GetModule("EditMode", true)
 local AceGUI = LibStub("AceGUI-3.0")
+local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 
 -- Lua API
 local error = error
@@ -35,10 +39,12 @@ local getmetatable = getmetatable
 local math_abs = math.abs
 local next = next
 local rawget = rawget
+local select = select
 local setmetatable = setmetatable
 local string_format = string.format
 local table_insert = table.insert
 local table_sort = table.sort
+local type = type
 local unpack = unpack
 
 -- Addon API
@@ -47,7 +53,7 @@ local GetFont = ns.API.GetFont
 local GetMedia = ns.API.GetMedia
 local UIHider = ns.Hider
 
-local SCALE = 1 -- current relative scale
+local SCALE = UIParent:GetScale() -- current blizzard scale
 local DEFAULTLAYOUT = "Azerite" -- default layout name
 local LAYOUT = DEFAULTLAYOUT -- currently selected layout preset
 local CURRENT -- currently selected anchor frame
@@ -64,14 +70,32 @@ local AnchorData = {}
 
 -- Utility
 --------------------------------------
--- Compare two anchor points or two scales.
+-- Parse any number of arguments for functions,
+-- return the function result as the value,
+-- or just the pass the value otherwise.
+local get = function(...)
+	local numArgs = select("#", ...)
+	if (numArgs == "1") then
+		return type(...) == "function" and (...)() or ...
+	end
+	local args = { ... }
+	for i,val in ipairs(args) do
+		local arg = select(i, ...)
+		if (type(arg) == "function") then
+			args[i] = arg()
+		end
+	end
+	return unpack(args)
+end
+
+-- Compare two scales or two positions.
 local compare = function(...)
 	local numArgs = select("#", ...)
 	if (numArgs == 2) then
-		local s, s2 = ...
+		local s, s2 = get(...)
 		return (math_abs(s - s2) < (diff or 0.01))
 	else
-		local point, x, y, point2, x2, y2, diff = ...
+		local point, x, y, point2, x2, y2, diff = get(...)
 		return (point == point2) and (math_abs(x - x2) < (diff or 0.01)) and (math_abs(y - y2) < (diff or 0.01))
 	end
 end
@@ -169,7 +193,6 @@ Anchor.Create = function(self)
 	anchor:SetFrameStrata("HIGH")
 	anchor:SetFrameLevel(1000)
 	anchor:SetMovable(true)
-	anchor:SetHitRectInsets(-20,-20,-20,-20)
 	anchor:RegisterForDrag("LeftButton")
 	anchor:RegisterForClicks("AnyUp")
 	anchor:SetScript("OnDragStart", Anchor.OnDragStart)
@@ -191,8 +214,11 @@ Anchor.Create = function(self)
 		edgeSize = 16,
 		insets = { left = 5, right = 3, top = 3, bottom = 5 }
 	})
-	overlay:SetBackdropColor(.5, 1, .5, .75)
-	overlay:SetBackdropBorderColor(.5, 1, .5, 1)
+
+	local r, g, b = unpack(Colors.anchor.general)
+	overlay:SetBackdropColor(r, g, b, .75)
+	overlay:SetBackdropBorderColor(r, g, b, 1)
+
 	anchor.Overlay = overlay
 
 	local text = overlay:CreateFontString(nil, "OVERLAY", nil, 1)
@@ -216,8 +242,9 @@ Anchor.Create = function(self)
 	anchor.Title = title
 
 	AnchorData[anchor] = {
-		anchor = anchor,
-		scale = 1,
+		hasMoved = false,
+		--anchor = anchor,
+		scale = ns.API.GetEffectiveScale(), -- we're doing this?
 		minScale = .5,
 		maxScale = 1.5,
 		isScalable = false,
@@ -277,13 +304,11 @@ Anchor.ResetLastChange = function(self)
 
 	self:SetScale(anchorData.scale)
 
-	self:UpdateScale(LAYOUT, anchorData.lastScale or anchorData.scale or anchorData.defaultScale)
+	self:UpdateScale(LAYOUT, get(anchorData.lastScale or anchorData.scale or anchorData.defaultScale))
 	self:UpdatePosition(LAYOUT, point, x, y)
 	self:UpdateText()
 
-	if (self.Callback) then
-		self:Callback("PositionUpdated", LAYOUT, point, x, y)
-	end
+	ns:Fire("MFM_PositionUpdated", LAYOUT, self, point, x, y)
 end
 
 -- Reset to default position.
@@ -296,13 +321,11 @@ Anchor.ResetToDefault = function(self)
 	anchorData.currentPosition = { point, x, y }
 	anchorData.lastPosition = { point, x, y }
 
-	self:UpdateScale(LAYOUT, anchorData.defaultScale)
+	self:UpdateScale(LAYOUT, get(anchorData.defaultScale))
 	self:UpdatePosition(LAYOUT, point, x, y)
 	self:UpdateText()
 
-	if (self.Callback) then
-		self:Callback("PositionUpdated", LAYOUT, point, x, y)
-	end
+	ns:Fire("MFM_PositionUpdated", LAYOUT, self, point, x, y)
 end
 
 Anchor.UpdateText = function(self)
@@ -315,17 +338,29 @@ Anchor.UpdateText = function(self)
 		msg = string_format(Colors.highlight.colorCode.."%s, %.0f, %.0f|r", unpack(anchorData.currentPosition))
 	end
 
+	-- No texture rotation in Classic or TBC
+	if (ns.IsWrath or ns.IsRetail) then
+		local width,height = self:GetSize()
+		if (width/height < .8) then
+			self.Text:SetRotation(-math.pi/2)
+			self.Title:SetRotation(-math.pi/2)
+		else
+			self.Text:SetRotation(0)
+			self.Title:SetRotation(0)
+		end
+	end
+
 	if (self.isSelected) then -- self:IsMouseOver(20,-20,-20,20)
 		if (self:IsInDefaultPosition()) then
-			msg = msg .. Colors.green.colorCode.."\n<Left-Click and drag to move>|r"
+			msg = msg .. Colors.green.colorCode.."\n"..L["<Left-Click and drag to move>"].."|r"
 			if (self:IsScalable() and compare(anchorData.scale, anchorData.defaultScale)) then
-				msg = msg .. Colors.green.colorCode.."\n<MouseWheel to change scale>|r"
+				msg = msg .. Colors.green.colorCode.."\n"..L["<MouseWheel to change scale>"].."|r"
 			end
 		else
 			if (self:HasMovedSinceLastUpdate()) then
-				msg = msg .. Colors.green.colorCode.."\n<Ctrl and Right-Click to undo last change>|r"
+				msg = msg .. Colors.green.colorCode.."\n"..L["<Ctrl and Right-Click to undo last change>"].."|r"
 			end
-			msg = msg .. Colors.green.colorCode.."\n<Shift-Click to reset to default>|r"
+			msg = msg .. Colors.green.colorCode.."\n"..L["<Shift-Click to reset to default>"].."|r"
 		end
 		self.Title:Hide()
 		self.Text:Show()
@@ -351,9 +386,7 @@ Anchor.UpdatePosition = function(self, layoutName, point, x, y)
 	self:SetPointBase(point, UIParent, point, x, y)
 	self:UpdateText()
 
-	if (self.Callback) then
-		self:Callback("PositionUpdated", layoutName, point, x, y)
-	end
+	ns:Fire("MFM_PositionUpdated", layoutName, self, point, x, y)
 end
 
 Anchor.UpdateScale = function(self, layoutName, scale)
@@ -363,23 +396,29 @@ Anchor.UpdateScale = function(self, layoutName, scale)
 	anchorData.scale = scale
 
 	if (anchorData.width and anchorData.height) then
-		self:SetSizeBase(anchorData.width * anchorData.scale, anchorData.height * anchorData.scale)
+		self:SetSizeBase(anchorData.width * get(anchorData.scale), anchorData.height * get(anchorData.scale))
 		self:UpdateText()
 	end
 
-	if (self.Callback) then
-		self:Callback("ScaleUpdated", LAYOUT, scale)
-	end
+	ns:Fire("MFM_ScaleUpdated", LAYOUT, self, scale)
 end
 
 -- Anchor Getters
 --------------------------------------
 Anchor.GetPosition = function(self)
-	return unpack(AnchorData[self].currentPosition)
+	return AnchorData[self].currentPosition[1], AnchorData[self].currentPosition[2], AnchorData[self].currentPosition[3]
 end
 
 Anchor.GetScale = function(self)
 	return AnchorData[self].scale
+end
+
+Anchor.GetDefaultScale = function(self, scale)
+	return get(AnchorData[self].defaultScale)
+end
+
+Anchor.GetDefaultPosition = function(self, point, x, y)
+	return AnchorData[self].defaultPosition
 end
 
 -- Anchor Setters
@@ -439,6 +478,7 @@ Anchor.SetWidth = function(self, width)
 	local anchorData = AnchorData[self]
 	anchorData.width = width
 	self:SetWidthBase(width * anchorData.scale)
+	self:SetHitRectInsets(width < 20 and -10 or 0, width < 20 and -10 or 0, height < 20 and -10 or 0, height < 20 and -10 or 0)
 end
 
 Anchor.SetHeightBase = mt.SetHeight
@@ -446,6 +486,7 @@ Anchor.SetHeight = function(self, height)
 	local anchorData = AnchorData[self]
 	anchorData.height = height
 	self:SetHeightBase(height * anchorData.scale)
+	self:SetHitRectInsets(width < 20 and -10 or 0, width < 20 and -10 or 0, height < 20 and -10 or 0, height < 20 and -10 or 0)
 end
 
 Anchor.SetPointBase = mt.SetPoint
@@ -495,6 +536,11 @@ Anchor.OnClick = function(self, button)
 		end
 
 	elseif (button == "RightButton") then
+		if (CURRENT and CURRENT == self) then
+			CURRENT = nil
+			self.isSelected = nil
+			self:OnLeave()
+		end
 		self:SetFrameLevel(40)
 		if (IsControlKeyDown() and self:HasMovedSinceLastUpdate()) then
 			self:ResetLastChange()
@@ -507,6 +553,7 @@ Anchor.OnClick = function(self, button)
 end
 
 Anchor.OnMouseWheel = function(self, delta)
+	if (not self.isSelected) then return end
 	local anchorData = AnchorData[self]
 	local scale = anchorData.scale
 	local step = anchorData.scaleStep or .1
@@ -527,10 +574,20 @@ Anchor.OnMouseWheel = function(self, delta)
 end
 
 Anchor.OnDragStart = function(self, button)
+
+	-- Treat the dragged frame as clicked.
+	CURRENT = self
+	self.isSelected = true
+	self:OnEnter()
+	self:SetFrameLevel(60)
+
+	-- Start the drag handler.
 	self:StartMoving()
 	self:SetUserPlaced(false)
 	self.elapsed = 0
 	self:SetScript("OnUpdate", self.OnUpdate)
+
+	AnchorData[self].hasMoved = true
 end
 
 Anchor.OnDragStop = function(self)
@@ -541,7 +598,7 @@ Anchor.OnDragStop = function(self)
 
 	local point, x, y = getPosition(self)
 
-	anchorData.currentPosition = { getPosition(self) }
+	anchorData.currentPosition = { point, x, y }
 
 	self:UpdatePosition(LAYOUT, point, x, y)
 end
@@ -553,10 +610,15 @@ end
 
 Anchor.OnLeave = function(self)
 	self:UpdateText()
-	self:SetAlpha(.75)
+	self:SetAlpha(.5)
 end
 
 Anchor.OnShow = function(self)
+	-- Allow modules to position anchor correctly.
+	if (self.PreUpdate) then
+		self:PreUpdate()
+	end
+
 	local anchorData = AnchorData[self]
 	local point, x, y = getPosition(self)
 
@@ -565,14 +627,12 @@ Anchor.OnShow = function(self)
 	anchorData.currentPosition = { point, x, y }
 
 	self:SetFrameLevel(50)
-	self:SetAlpha(.75)
+	self:SetAlpha(.5)
 	self:ClearAllPoints()
 	self:SetPointBase(point, UIParent, point, x, y)
 	self:UpdateText()
 
-	if (self.Callback) then
-		self:Callback("AnchorShown", LAYOUT, point, x, y)
-	end
+	ns:Fire("MFM_AnchorShown", LAYOUT, self, point, x, y)
 end
 
 Anchor.OnHide = function(self)
@@ -598,9 +658,7 @@ Anchor.OnUpdate = function(self, elapsed)
 
 	self:UpdateText()
 
-	if (self.Callback) then
-		self:Callback("Dragging", LAYOUT, point, x, y)
-	end
+	ns:Fire("MFM_Dragging", LAYOUT, self, point, x, y)
 end
 
 local RequestMovableFrameAnchor = function(...)
@@ -610,7 +668,7 @@ end
 -- This needs to be updated on layout changes.
 local UpdateMovableFrameAnchors = function()
 	for anchor in next,AnchorData do
-		if (anchor.editModeAccountSetting) then
+		if (ns.WoW10 and anchor.editModeAccountSetting) then
 			if (EditModeManagerFrame:GetAccountSettingValueBool(anchor.editModeAccountSetting)) then
 				if (anchor:IsEnabled()) then
 					anchor:Show()
@@ -634,12 +692,6 @@ end
 
 -- Module API
 --------------------------------------
-MovableFramesManager.SetRelativeScale = function(self, scale)
-end
-
-MovableFramesManager.GetRelativeScale = function(self)
-end
-
 MovableFramesManager.RequestAnchor = function(self, ...)
 	return RequestMovableFrameAnchor(...)
 end
@@ -680,7 +732,7 @@ MovableFramesManager.ApplyPreset = function(self, layoutName)
 	self.db.char.layout = LAYOUT
 
 	-- Send message to modules to switch to the selected preset.
-	self:ForAllAnchors("LayoutsUpdated", LAYOUT)
+	ns:Fire("MFM_LayoutsUpdated", LAYOUT)
 
 	-- Update the manager frame.
 	self:UpdateMFMFrame()
@@ -703,14 +755,14 @@ MovableFramesManager.DeletePreset = function(self, layoutName)
 		self.db.char.layout = LAYOUT
 
 		-- Send message to modules to switch to the selected preset.
-		self:ForAllAnchors("LayoutsUpdated", LAYOUT)
+		ns:Fire("MFM_LayoutsUpdated", LAYOUT)
 	end
 
 	-- Remove from our preset list.
 	self.layouts[layoutName] = nil
 
 	-- Send message to all moduels to remove the selected preset.
-	self:ForAllAnchors("LayoutDeleted", layoutName)
+	ns:Fire("MFM_LayoutDeleted", LAYOUT)
 
 	-- Update the manager frame.
 	self:UpdateMFMFrame()
@@ -780,7 +832,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 		-- Dropdown label
 		local label = AceGUI:Create("Label")
-		label:SetText(HUD_EDIT_MODE_LAYOUT or "Layout:")
+		label:SetText(L["Layout:"])
 		label:SetFontObject(GetFont(13, true))
 		label:SetColor(unpack(Colors.normal))
 		label:SetFullWidth(true)
@@ -815,7 +867,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 		group:SetHeight(60)
 
 		local button = AceGUI:Create("Button")
-		button:SetText(CALENDAR_CREATE)
+		button:SetText(L["Create"])
 		button:SetRelativeWidth(.3)
 		button:SetCallback("OnClick", function()
 
@@ -871,7 +923,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 				local label = popup:CreateFontString(nil, "OVERLAY")
 				label:SetFontObject(GetFont(13, true))
 				label:SetTextColor(unpack(Colors.normal))
-				label:SetText(HUD_EDIT_MODE_NAME_LAYOUT_DIALOG_TITLE or "Name the New Layout")
+				label:SetText(L["Name the New Layout"])
 				label:SetPoint("BOTTOM", editbox, "TOP", 0, 6)
 				label:SetJustifyH("LEFT")
 				label:SetJustifyV("BOTTOM")
@@ -880,7 +932,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 				local accept = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
 				accept:SetSize(160, 30)
-				accept:SetText(HUD_EDIT_MODE_SAVE_LAYOUT or SAVE)
+				accept:SetText(L["Save"])
 				accept:SetPoint("BOTTOMLEFT", 20, 20)
 				accept:SetScript("OnClick", function(widget)
 					local layoutName = widget:GetParent().EditBox:GetText()
@@ -895,7 +947,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 				local cancel = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
 				cancel:SetSize(160, 30)
-				cancel:SetText(CANCEL)
+				cancel:SetText(L["Cancel"])
 				cancel:SetPoint("BOTTOMRIGHT", -20, 20)
 				cancel:SetScript("OnClick", function(widget)
 					widget:GetParent():Hide()
@@ -913,7 +965,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 		window.CreateLayoutButton = button
 
 		local button = AceGUI:Create("Button")
-		button:SetText(CALENDAR_COPY_EVENT)
+		button:SetText(L["Copy"])
 		button:SetRelativeWidth(.3)
 		button:SetDisabled(true)
 		button:SetCallback("OnClick", function()
@@ -927,7 +979,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 		window.CopyLayoutButton = button
 
 		local button = AceGUI:Create("Button")
-		button:SetText(CALENDAR_DELETE_EVENT)
+		button:SetText(L["Delete"])
 		button:SetRelativeWidth(.3)
 		button:SetDisabled(true)
 		button:SetCallback("OnClick", function()
@@ -952,7 +1004,7 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 			-- EditMode section title
 			local label = AceGUI:Create("Label")
-			label:SetText(HUD_EDIT_MODE_TITLE)
+			label:SetText(L["HUD Edit Mode"])
 			label:SetFontObject(GetFont(15, true))
 			label:SetColor(unpack(Colors.normal))
 			label:SetFullWidth(true)
@@ -970,17 +1022,17 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 			-- EditMode reset button description
 			local label = AceGUI:Create("Label")
-			label:SetText("Click the button below to reset the currently selected EditMode preset to positions matching the default AzeriteUI layout.")
+			label:SetText(L["Click the button below to reset the currently selected EditMode preset to positions matching the default AzeriteUI layout."])
 			label:SetFontObject(GetFont(13, true))
 			label:SetColor(unpack(Colors.offwhite))
 			label:SetRelativeWidth(.9)
 			group:AddChild(label)
 
 			local button = AceGUI:Create("Button")
-			button:SetText("Reset EditMode Layout")
+			button:SetText(L["Reset EditMode Layout"])
 			button:SetFullWidth(true)
 			button:SetCallback("OnClick", function()
-				EMP:ApplySystems() -- saves through reloads, not relogs
+				EMP:ApplySystems()
 			end)
 			window.ResetEditModeLayoutButton = button
 
@@ -998,14 +1050,14 @@ MovableFramesManager.GetMFMFrame = function(self)
 
 			-- EditMode reset button description
 			local label = AceGUI:Create("Label")
-			label:SetText("Click the button below to create an EditMode preset named 'Azerite'.")
+			label:SetText(L["Click the button below to create an EditMode preset named 'Azerite'."])
 			label:SetFontObject(GetFont(13, true))
 			label:SetColor(unpack(Colors.offwhite))
 			label:SetRelativeWidth(.9)
 			group:AddChild(label)
 
 			local button = AceGUI:Create("Button")
-			button:SetText("Create EditMode Layout")
+			button:SetText(L["Create EditMode Layout"])
 			button:SetFullWidth(true)
 			button:SetDisabled(true)
 			button:SetCallback("OnClick", function()
@@ -1020,6 +1072,14 @@ MovableFramesManager.GetMFMFrame = function(self)
 	end
 
 	return self.frame
+end
+
+MovableFramesManager.GetLayout = function(self)
+	return LAYOUT
+end
+
+MovableFramesManager.GetDefaultLayout = function(self)
+	return DEFAULTLAYOUT
 end
 
 MovableFramesManager.UpdateMovableFrameAnchors = function(self, ...)
@@ -1039,25 +1099,6 @@ MovableFramesManager.ToggleAnchors = function(self)
 	end
 end
 
-MovableFramesManager.ForAllAnchors = function(self, callback, layoutName)
-	for anchor in next,AnchorData do
-		if (anchor.Callback) then
-			anchor:Callback(callback, layoutName)
-			anchor:OnShow()
-		end
-	end
-end
-
-MovableFramesManager.ForAllVisibleAnchors = function(self, callback, layoutName)
-	for anchor in next,AnchorData do
-		if (anchor.Callback) then
-			if (anchor:IsShown()) then
-				anchor:Callback(callback, layoutName)
-			end
-		end
-	end
-end
-
 MovableFramesManager.OnEnterEditMode = function(self)
 	self:UpdateMFMFrame()
 	self:GetMFMFrame():Show()
@@ -1069,45 +1110,83 @@ end
 
 MovableFramesManager.OnEvent = function(self, event, ...)
 	if (event == "PLAYER_REGEN_DISABLED") then
-
 		self.incombat = true
-		self:ForAllVisibleAnchors("CombatStart", LAYOUT)
-
 
 	elseif (event == "PLAYER_REGEN_ENABLED") then
-
 		if (not InCombatLockdown()) then
 			self.incombat = nil
-			self:ForAllVisibleAnchors("CombatEnd", LAYOUT)
 		end
 
-	else
-		if (event == "PLAYER_LOGIN") then
+	elseif (event == "PLAYER_LOGIN") then
+		if (EMP) then
+			return EMP:LoadLayouts()
+		end
+
+	elseif (event == "PLAYER_ENTERING_WORLD") then
+		local isInitialLogin, isReloadingUi = ...
+		if (isInitialLogin or isReloadingUi) then
 			if (EMP) then
-				return EMP:LoadLayouts()
+				self:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED", "OnEvent")
+			end
+		end
+		self.incombat = InCombatLockdown()
+
+		ns:Fire("MFM_LayoutsUpdated", LAYOUT)
+	elseif (event == "EDIT_MODE_LAYOUTS_UPDATED") then
+		local layoutInfo, fromServer = ...
+		if (fromServer) then
+			if (EMP) then
+				EMP:LoadLayouts()
 			end
 		end
 
-		if (event == "PLAYER_ENTERING_WORLD") then
-			local isInitialLogin, isReloadingUi = ...
-			if (isInitialLogin or isReloadingUi) then
-				if (EMP) then
-					self:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED", "OnEvent")
+	elseif (event == "UI_SCALE_CHANGED") then
+		local scale = UIParent:GetScale()
+
+		for anchor,anchorData in next,AnchorData do
+
+			--local isDefault = anchor:IsInDefaultPosition()
+			local anchorscale = anchor:GetScale()
+			local point, x, y = anchor:GetPosition()
+
+			local nscale = (anchorscale * SCALE) / scale
+			local npoint, nx, ny = point, (x * SCALE) / scale, (y * SCALE) / scale
+
+			anchor:SetScale(nscale)
+			anchor:ClearAllPoints()
+			anchor:SetPoint(npoint, nx, ny)
+
+			anchorData.lastScale = nscale
+			anchorData.lastPosition = { npoint, nx, ny }
+			anchorData.currentPosition = { npoint, nx, ny }
+
+			-- If the default position has been set, adjust it.
+			if (anchorData.defaultPosition) then
+				local anchorscale = anchorData.defaultScale
+				local calculatedscale = type(anchorscale) == "function" and anchorscale()
+				local point, x, y = anchorData.defaultPosition[1], anchorData.defaultPosition[2], anchorData.defaultPosition[3]
+
+				local nscale = ((calculatedscale or anchorscale) * SCALE) / scale
+				local npoint, nx, ny = point, (x * SCALE) / scale, (y * SCALE) / scale
+
+				anchorData.defaultPosition[1] = npoint
+				anchorData.defaultPosition[2] = nx
+				anchorData.defaultPosition[3] = ny
+
+				-- Only update this is the scale is a number,
+				-- assume functions are meant as overrides.
+				if (type(anchorscale) == "number") then
+					anchorData.defaultScale = nscale
+				end
+
+				-- Callback to modules so they can update their default tables.
+				if (anchor.UpdateDefaults) then
+					anchor:UpdateDefaults()
 				end
 			end
-			self.incombat = InCombatLockdown()
 		end
 
-		if (event == "EDIT_MODE_LAYOUTS_UPDATED") then
-			local layoutInfo, fromServer = ...
-			if (fromServer) then
-				if (EMP) then
-					EMP:LoadLayouts()
-				end
-			end
-		end
-
-		self:ForAllAnchors("LayoutsUpdated", LAYOUT)
+		SCALE = scale
 	end
 
 	self:UpdateMFMFrame()
@@ -1120,8 +1199,9 @@ MovableFramesManager.OnInitialize = function(self)
 	self.layouts = {}
 
 	LAYOUT = self.db.char.layout
+	SCALE = UIParent:GetScale()
 
-	if (EMP) then
+	if (ns.WoW10) then
 		-- Hook our anchor frame's visibility to the editmode.
 		-- Note that we cannot simply parent it to the editmode manager,
 		-- as that will break the resizing and functionality of the editmode manager.
@@ -1145,4 +1225,5 @@ MovableFramesManager.OnInitialize = function(self)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnEvent")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnEvent")
+	self:RegisterEvent("UI_SCALE_CHANGED", "OnEvent")
 end

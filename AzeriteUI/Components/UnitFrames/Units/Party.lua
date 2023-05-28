@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local PartyFrameMod = ns:Merge(ns:NewModule("PartyFrames", "LibMoreEvents-1.0", "AceHook-3.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local string_gsub = string.gsub
@@ -45,11 +45,12 @@ local playerClass = ns.PlayerClass
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "TOPLEFT",
-			[2] = 50,
-			[3] = -42
+			[2] = 50 * ns.API.GetEffectiveScale(),
+			[3] = -42 * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -81,13 +82,13 @@ local config = {
 	Sorting = "INDEX", -- sort method
 	SortDirection = "ASC", -- sort direction
 
-	PartySize = { 130, 130 }, -- party member size
-	PartyHitRectInsets = { 0, 0, 0, -10 }, -- party member mouseover hit box
+	UnitSize = { 130, 140 }, -- party member size
+	--PartyHitRectInsets = { 0, 0, 0, -10 }, -- party member mouseover hit box
 	OutOfRangeAlpha = .6, -- Alpha of out of range party members
 
 	-- Health
 	-----------------------------------------
-	HealthBarPosition = { "BOTTOM", 0, 0 },
+	HealthBarPosition = { "BOTTOM", 0, 10 },
 	HealthBarSize = { 80, 14 },
 	HealthBarTexture = GetMedia("cast_bar"),
 	HealthBarOrientation = "RIGHT",
@@ -109,7 +110,7 @@ local config = {
 	-- Power
 	-----------------------------------------
 	PowerBarSize = { 72, 1 },
-	PowerBarPosition = { "BOTTOM", 0, -1.5 },
+	PowerBarPosition = { "BOTTOM", 0, -1.5 + 10 },
 	PowerBarTexture = [[Interface\ChatFrame\ChatFrameBackground]],
 	PowerBarOrientation = "RIGHT",
 	PowerBackdropSize = { 74, 3 },
@@ -119,7 +120,7 @@ local config = {
 
 	-- Portrait
 	-----------------------------------------
-	PortraitPosition = { "BOTTOM", 0, 22 },
+	PortraitPosition = { "BOTTOM", 0, 22 + 10 },
 	PortraitSize = { 70, 73 },
 	PortraitAlpha = .85,
 	PortraitBackgroundPosition = { "BOTTOM", 0, -6 },
@@ -144,7 +145,7 @@ local config = {
 
 	-- Ready Check
 	-----------------------------------------
-	ReadyCheckPosition = { "CENTER", 0, -7 },
+	ReadyCheckPosition = { "CENTER", 0, -7 + 10 },
 	ReadyCheckSize = { 32, 32 },
 	ReadyCheckReadyTexture = [[Interface/RAIDFRAME/ReadyCheck-Ready]],
 	ReadyCheckNotReadyTexture = [[Interface/RAIDFRAME/ReadyCheck-NotReady]],
@@ -152,7 +153,7 @@ local config = {
 
 	-- Resurrection Indicator
 	-----------------------------------------
-	ResurrectIndicatorPosition = { "CENTER", 0, -7 },
+	ResurrectIndicatorPosition = { "CENTER", 0, -7 + 10 },
 	ResurrectIndicatorSize = { 32, 32 },
 	ResurrectIndicatorTexture = [[Interface\RaidFrame\Raid-Icon-Rez]],
 
@@ -180,7 +181,7 @@ local config = {
 
 	-- Auras
 	-----------------------------------------
-	AurasPosition = { "BOTTOM", 0, -(34*2 + 22) },
+	AurasPosition = { "BOTTOM", 0, -(34*2 + 22) + 10 },
 	AurasSize = { 34*3 - 4, 34*2 - 4 },
 	AuraSize = 30,
 	AuraSpacing = 4,
@@ -196,7 +197,7 @@ local config = {
 	AurasGrowthY = "DOWN",
 	AurasTooltipAnchor = "ANCHOR_TOPLEFT",
 	AurasSortMethod = "TIME_REMAINING",
-	AurasSortDirection = "DESCENDING",
+	AurasSortDirection = "DESCENDING"
 
 }
 
@@ -483,10 +484,6 @@ end
 local style = function(self, unit)
 
 	local db = config
-
-	self:SetSize(unpack(db.PartySize))
-	self:SetHitRectInsets(unpack(db.PartyHitRectInsets))
-	self:SetFrameLevel(self:GetFrameLevel() + 10)
 
 	-- Apply common scripts and member values.
 	ns.UnitFrame.InitializeUnitFrame(self)
@@ -775,7 +772,7 @@ local style = function(self, unit)
 	auras.CustomFilter = ns.AuraFilters.PartyAuraFilter -- classic
 	auras.FilterAura = ns.AuraFilters.PartyAuraFilter -- retail
 
-	if (ns.db.global.disableAuraSorting) then
+	if (ns:GetModule("UnitFrames").db.global.disableAuraSorting) then
 		auras.PreSetPosition = ns.AuraSorts.Alternate -- only in classic
 		auras.SortAuras = ns.AuraSorts.AlternateFuncton -- only in retail
 	else
@@ -785,14 +782,6 @@ local style = function(self, unit)
 
 	self.Auras = auras
 
-	-- Range Alpha
-	-------------------------------------------
-	-- *looks really weird, going to drop it.
-	--self.Range = {
-	--	insideAlpha = 1,
-	--	outsideAlpha = db.OutOfRangeAlpha,
-	--}
-
 	-- Textures need an update when frame is displayed.
 	self.PostUpdate = UnitFrame_PostUpdate
 
@@ -800,10 +789,9 @@ local style = function(self, unit)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", UnitFrame_OnEvent, true)
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", UnitFrame_OnEvent, true)
 
-
 end
 
--- Fake GroupHeader
+-- GroupHeader Template
 ---------------------------------------------------
 local GroupHeader = {}
 
@@ -820,7 +808,7 @@ end
 
 GroupHeader.Enable = function(self)
 	if (InCombatLockdown()) then return end
-	local visibility = select(3, self:GetPartyAttributes())
+	local visibility = select(3, self:GetHeaderAttributes())
 	local type, list = string.split(" ", visibility, 2)
 	if (list and type == "custom") then
 		RegisterAttributeDriver(self, "state-visibility", list)
@@ -837,7 +825,7 @@ GroupHeader.Disable = function(self)
 	RegisterAttributeDriver(self, "state-visibility", "hide")
 end
 
-PartyFrameMod.GetPartyAttributes = function(self)
+PartyFrameMod.GetHeaderAttributes = function(self)
 	return ns.Prefix.."Party", nil,
 	--"custom [@player,exists,nogroup:party] show;[group:party,nogroup:raid] show;hide", "showPlayer", true, "showSolo", true,
 	--"custom [group:party,nogroup:raid] show;hide", "showPlayer", false, "showSolo", false,
@@ -848,8 +836,8 @@ PartyFrameMod.GetPartyAttributes = function(self)
 		self:SetHeight(header:GetAttribute("initial-height"));
 		self:SetFrameLevel(self:GetFrameLevel() + 10);
 	]],
-	"initial-width", config.PartySize[1],
-	"initial-height", config.PartySize[2],
+	"initial-width", config.UnitSize[1],
+	"initial-height", config.UnitSize[2],
 	"showParty", true,
 	"point", config.Anchor,
 	"xOffset", config.GrowthX,
@@ -875,8 +863,8 @@ PartyFrameMod.Spawn = function(self)
 	oUF:RegisterStyle(ns.Prefix..name, style)
 	oUF:SetActiveStyle(ns.Prefix..name)
 
-	self.frame = oUF:SpawnHeader(self:GetPartyAttributes())
-	self.frame:SetSize(unpack(config.PartySize))
+	self.frame = oUF:SpawnHeader(self:GetHeaderAttributes())
+	self.frame:SetSize(unpack(config.UnitSize))
 
 	-- Embed our custom methods
 	for method,func in next,GroupHeader do
@@ -884,7 +872,7 @@ PartyFrameMod.Spawn = function(self)
 	end
 
 	-- Sometimes some elements are wrong or "get stuck" upon exiting the editmode.
-	if (EditModeManagerFrame) then
+	if (ns.WoW10) then
 		self:SecureHook(EditModeManagerFrame, "ExitEditMode", "UpdateAll")
 	end
 
@@ -898,21 +886,18 @@ PartyFrameMod.Spawn = function(self)
 	-- Not sure if this is something we should force update as the health element
 	-- is already registered for this event. Leaving this comment here while I decide.
 
-
 	-- Movable Frame Anchor
 	---------------------------------------------------
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(PARTY)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(130*4, 130)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
 	anchor:SetEditModeAccountSetting(ns.IsRetail and Enum.EditModeAccountSetting.ShowPartyFrames)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "TOPLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -924,9 +909,7 @@ PartyFrameMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard party frames
 	for i = 1, MEMBERS_PER_RAID_GROUP do

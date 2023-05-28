@@ -29,7 +29,7 @@ if (ns.IsClassic) then return end
 local oUF = ns.oUF
 
 local FocusFrameMod = ns:Merge(ns:NewModule("FocusFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local unpack = unpack
@@ -46,11 +46,12 @@ local playerClass = ns.PlayerClass
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "BOTTOMLEFT",
-			[2] = 332-136,
-			[3] = 270-23
+			[2] = (332-136) * ns.API.GetEffectiveScale(),
+			[3] = (270-23) * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -471,15 +472,13 @@ FocusFrameMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(FOCUS) -- crazy long
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(136, 47)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
 	anchor:SetEditModeAccountSetting(ns.IsRetail and Enum.EditModeAccountSetting.ShowTargetAndFocus)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "BOTTOMLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -491,9 +490,7 @@ FocusFrameMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard focus frame
 	oUF:DisableBlizzard("focus")

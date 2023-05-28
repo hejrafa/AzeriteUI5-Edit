@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local ToTFrameMod = ns:Merge(ns:NewModule("ToTFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local unpack = unpack
@@ -44,11 +44,12 @@ local playerClass = ns.PlayerClass
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "TOPRIGHT",
-			[2] = -492,
-			[3] = -90+23
+			[2] = -492 * ns.API.GetEffectiveScale(),
+			[3] = -(90+23) * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -494,14 +495,12 @@ ToTFrameMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(SHOW_TARGET_OF_TARGET_TEXT) -- crazy long
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(136, 47)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "BOTTOMLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -513,9 +512,7 @@ ToTFrameMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard tot frame.
 	oUF:DisableBlizzard("targettarget")

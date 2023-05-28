@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local CastBarMod = ns:Merge(ns:NewModule("PlayerCastBarFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local next = next
@@ -40,6 +40,7 @@ local Colors = ns.Colors
 local GetFont = ns.API.GetFont
 local GetMedia = ns.API.GetMedia
 local IsAddOnEnabled = ns.API.IsAddOnEnabled
+local UIHider = ns.Hider
 
 -- Constants
 local playerClass = ns.PlayerClass
@@ -49,11 +50,12 @@ local playerXPDisabled = IsXPUserDisabled()
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "BOTTOM",
-			[2] = 0,
-			[3] = 290 - 16/2
+			[2] = 0 * ns.API.GetEffectiveScale(),
+			[3] = (290 - 16/2) * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -254,15 +256,13 @@ CastBarMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(HUD_EDIT_MODE_CAST_BAR_LABEL or SHOW_ARENA_ENEMY_CASTBAR_TEXT)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(112 + 16, 11 + 16)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
 	anchor:SetEditModeAccountSetting(ns.IsRetail and Enum.EditModeAccountSetting.ShowCastBar)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "TOPLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -294,16 +294,16 @@ CastBarMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	if (ns.IsRetail) then
+
 		-- How the fuck do I get this out of the editmode?
 		PlayerCastingBarFrame:SetParent(UIHider)
 		PlayerCastingBarFrame:UnregisterAllEvents()
 		PlayerCastingBarFrame:SetUnit(nil)
 		PlayerCastingBarFrame:Hide()
+		PlayerCastingBarFrame:SetAlpha(0) -- will this do it? anchor still there?
 
 		PetCastingBarFrame:SetParent(UIHider)
 		PetCastingBarFrame:UnregisterAllEvents()

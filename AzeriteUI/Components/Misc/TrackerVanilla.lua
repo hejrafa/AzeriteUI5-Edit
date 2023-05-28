@@ -27,7 +27,7 @@ local Addon, ns = ...
 if (not ns.IsClassic) then return end
 
 local Tracker = ns:NewModule("Tracker", "LibMoreEvents-1.0", "AceHook-3.0")
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua
 local math_min = math.min
@@ -45,11 +45,11 @@ local IsAddOnEnabled = ns.API.IsAddOnEnabled
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "BOTTOMRIGHT",
-			[2] = -60,
-			[3] = 380
+			[2] = -60 * ns.API.GetEffectiveScale(),
+			[3] = 380 * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.moduleDefaults) }
@@ -70,7 +70,7 @@ Tracker.InitializeTracker = function(self)
 
 	 local frame = CreateFrame("Frame", nil, UIParent)
 	 frame:SetSize(config.Size[1], config.TrackerHeight)
-	 frame:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
+	 frame:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
 	 self.frame = frame
 
 	-- Re-position after UIParent messes with it.
@@ -243,18 +243,26 @@ Tracker.InitializeMovableFrameAnchor = function(self)
 
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(TRACKER_HEADER_OBJECTIVE)
-	anchor:SetScalable(false)
-	--anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetScalable(true)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(config.Size[1], config.TrackerHeight)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "BOTTOM"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
+	anchor:SetDefaultScale(ns.API.GetEffectiveScale)
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
+end
 
+Tracker.UpdateDefaults = function(self)
+	if (not self.anchor or not self.db) then return end
+
+	local defaults = self.db.defaults.profile.savedPosition[MFM:GetDefaultLayout()]
+	if (not defaults) then return end
+
+	defaults.scale = self.anchor:GetDefaultScale()
+	defaults[1], defaults[2], defaults[3] = self.anchor:GetDefaultPosition()
 end
 
 Tracker.UpdateTrackerPosition = function(self)
@@ -270,122 +278,27 @@ Tracker.UpdateTrackerPosition = function(self)
 end
 
 Tracker.UpdatePositionAndScale = function(self)
+	if (not self.frame) then return end
 
-	local savedPosition = self.currentLayout and self.db.profile.savedPosition[self.currentLayout]
-	if (savedPosition) then
-		local point, x, y = unpack(savedPosition)
-		local scale = savedPosition.scale
-		local frame = self.frame
-		local anchor = self.anchor
+	local config = self.db.profile.savedPosition[MFM:GetLayout()]
 
-		-- Set the scale before positioning,
-		-- or everything will be wonky.
-		frame:SetScale(scale * ns.API.GetDefaultElementScale())
-
-		if (anchor and anchor.framePoint) then
-			-- Position the frame at the anchor,
-			-- with the given point and offsets.
-			frame:ClearAllPoints()
-			frame:SetPoint(anchor.framePoint, anchor, anchor.framePoint, (anchor.frameOffsetX or 0)/scale, (anchor.frameOffsetY or 0)/scale)
-
-			-- Parse where this actually is relative to UIParent
-			local point, x, y = ns.API.GetPosition(frame)
-
-			-- Reposition the frame relative to UIParent,
-			-- to avoid it being hooked to our anchor in combat.
-			frame:ClearAllPoints()
-			frame:SetPoint(point, UIParent, point, x, y)
-		end
-	end
-
+	self.frame:SetScale(config.scale)
+	self.frame:ClearAllPoints()
+	self.frame:SetPoint(config[1], UIParent, config[1], config[2]/config.scale, config[3]/config.scale)
 end
 
-Tracker.OnAnchorUpdate = function(self, reason, layoutName, ...)
-	local savedPosition = self.db.profile.savedPosition
-	local lockdown = InCombatLockdown()
-
-	if (reason == "LayoutDeleted") then
-		if (savedPosition[layoutName]) then
-			savedPosition[layoutName] = nil
-		end
-
-	elseif (reason == "LayoutsUpdated") then
-
-		if (savedPosition[layoutName]) then
-
-			self.anchor:SetScale(savedPosition[layoutName].scale or self.anchor:GetScale())
-			self.anchor:ClearAllPoints()
-			self.anchor:SetPoint(unpack(savedPosition[layoutName]))
-
-			local defaultPosition = defaults.profile.savedPosition[layoutName]
-			if (defaultPosition) then
-				self.anchor:SetDefaultPosition(unpack(defaultPosition))
-			end
-
-			self.initialPositionSet = true
-				--self.currentLayout = layoutName
-
-		else
-			-- The user is unlikely to have a preset with our name
-			-- on the first time logging in.
-			if (not self.initialPositionSet) then
-				--print("setting default position for", layoutName, self.frame:GetName())
-
-				local defaultPosition = defaults.profile.savedPosition.Azerite
-
-				self.anchor:SetScale(defaultPosition.scale)
-				self.anchor:ClearAllPoints()
-				self.anchor:SetPoint(unpack(defaultPosition))
-				self.anchor:SetDefaultPosition(unpack(defaultPosition))
-
-				self.initialPositionSet = true
-				--self.currentLayout = layoutName
-			end
-
-			savedPosition[layoutName] = { self.anchor:GetPosition() }
-			savedPosition[layoutName].scale = self.anchor:GetScale()
-		end
-
-		self.currentLayout = layoutName
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "PositionUpdated") then
-		-- Fires when position has been changed.
-		local point, x, y = ...
-
-		savedPosition[layoutName] = { point, x, y }
-		savedPosition[layoutName].scale = self.anchor:GetScale()
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "ScaleUpdated") then
-		-- Fires when scale has been mousewheel updated.
-		local scale = ...
-
-		savedPosition[layoutName].scale = scale
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "Dragging") then
-		-- Fires on every drag update. Spammy.
-		--if (not self.incombat) then
-			self:OnAnchorUpdate("PositionUpdated", layoutName, ...)
-		--end
-
-	elseif (reason == "CombatStart") then
-		-- Fires right before combat lockdown for visible anchors.
-
-
-	elseif (reason == "CombatEnd") then
-		-- Fires when combat lockdown ends for visible anchors.
-
-	end
+Tracker.UpdateAnchor = function(self)
+	local config = self.db.profile.savedPosition[MFM:GetLayout()]
+	self.anchor:SetScale(config.scale)
+	self.anchor:ClearAllPoints()
+	self.anchor:SetPoint(config[1], UIParent, config[1], config[2], config[3])
 end
 
 Tracker.OnEvent = function(self, event, ...)
 	if (event == "PLAYER_ENTERING_WORLD") then
+
 		QuestWatchFrame:SetAlpha(.9)
+
 		if (self.queueImmersionHook) then
 			local frame = ImmersionFrame
 			if (frame) then
@@ -394,8 +307,68 @@ Tracker.OnEvent = function(self, event, ...)
 				frame:HookScript("OnHide", function() QuestWatchFrame:SetAlpha(.9) end)
 			end
 		end
+
+		self.incombat = nil
+		self:UpdateTrackerPosition()
+		self:UpdatePositionAndScale()
+
+	elseif (event == "VARIABLES_LOADED") then
+		self:UpdateTrackerPosition()
+		self:UpdatePositionAndScale()
+
+	elseif (event == "PLAYER_REGEN_ENABLED") then
+		if (InCombatLockdown()) then return end
+		self.incombat = nil
+
+	elseif (event == "PLAYER_REGEN_DISABLED") then
+		self.incombat = true
+
+	elseif (event == "MFM_LayoutsUpdated") then
+		local LAYOUT = ...
+
+		if (not self.db.profile.savedPosition[LAYOUT]) then
+			self.db.profile.savedPosition[LAYOUT] = ns:Merge({}, defaults.profile.savedPosition[MFM:GetDefaultLayout()])
+		end
+
+		self:UpdatePositionAndScale()
+		self:UpdateAnchor()
+
+	elseif (event == "MFM_LayoutDeleted") then
+		local LAYOUT = ...
+
+		self.db.profile.savedPosition[LAYOUT] = nil
+
+	elseif (event == "MFM_PositionUpdated") then
+		local LAYOUT, anchor, point, x, y = ...
+
+		if (anchor ~= self.anchor) then return end
+
+		self.db.profile.savedPosition[LAYOUT][1] = point
+		self.db.profile.savedPosition[LAYOUT][2] = x
+		self.db.profile.savedPosition[LAYOUT][3] = y
+
+		self:UpdatePositionAndScale()
+
+	elseif (event == "MFM_AnchorShown") then
+		local LAYOUT, anchor, point, x, y = ...
+
+		if (anchor ~= self.anchor) then return end
+
+	elseif (event == "MFM_ScaleUpdated") then
+		local LAYOUT, anchor, scale = ...
+
+		if (anchor ~= self.anchor) then return end
+
+		self.db.profile.savedPosition[LAYOUT].scale = scale
+		self:UpdatePositionAndScale()
+
+	elseif (event == "MFM_Dragging") then
+		if (not self.incombat) then
+			if (select(2, ...) ~= self.anchor) then return end
+
+			self:OnEvent("MFM_PositionUpdated", ...)
+		end
 	end
-	self:UpdateTrackerPosition()
 end
 
 Tracker.OnInitialize = function(self)
@@ -405,14 +378,25 @@ Tracker.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	self:InitializeTracker()
 	self:InitializeMovableFrameAnchor()
 
 	self.queueImmersionHook = IsAddOnEnabled("Immersion")
+end
+
+Tracker.OnEnable = function(self)
+
 	self:RegisterEvent("VARIABLES_LOADED", "OnEvent")
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
+	self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnEvent")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnEvent")
+
+	ns.RegisterCallback(self, "MFM_LayoutDeleted", "OnEvent")
+	ns.RegisterCallback(self, "MFM_LayoutsUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_PositionUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_AnchorShown", "OnEvent")
+	ns.RegisterCallback(self, "MFM_ScaleUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_Dragging", "OnEvent")
 end

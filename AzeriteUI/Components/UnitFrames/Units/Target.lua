@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local TargetFrameMod = ns:Merge(ns:NewModule("TargetFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local next = next
@@ -46,11 +46,12 @@ local playerLevel = UnitLevel("player")
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "TOPRIGHT",
-			[2] = -40,
-			[3] = -40
+			[2] = -40 * ns.API.GetEffectiveScale(),
+			[3] = -40 * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -103,9 +104,9 @@ local config = {
 
 	-- General Settings
 	-----------------------------------------
-	Size = { 439, 93 },
+	Size = { 550, 210 }, -- 550, 210 -- 439, 93
 	--Position = { "TOPRIGHT", -153, -79 },
-	HitRectInsets = { 0, -110, -40, -26 },
+	HitRectInsets = { 0, 0, -40, -26 },
 	IsFlippedHorizontally = true,
 
 	-- Health Value Text
@@ -123,7 +124,7 @@ local config = {
 	HealthPercentageColor = { Colors.highlight[1], Colors.highlight[2], Colors.highlight[3], .4 },
 
 	-- Power Crystal
-	PowerBarPosition = { "CENTER", 439/2 + 79 +2, -6+ 93/2 -62 + 4 +6 },
+	PowerBarPosition = { "TOPRIGHT", 8, -58 }, -- "CENTER", 188, -51
 	PowerBarSize = { 80, 80 },
 	PowerBarAlpha = .75,
 	PowerBarTexture = GetMedia("power_crystal_small_front"),
@@ -171,27 +172,27 @@ local config = {
 	NameColor = { Colors.highlight[1], Colors.highlight[2], Colors.highlight[3], .75 },
 
 	-- Portrait
-	PortraitPosition = { "TOPRIGHT", 73, 8 },
+	PortraitPosition = { "TOPRIGHT", 73 - 113, 8 - 39 },
 	PortraitSize = { 85, 85 },
 	PortraitAlpha = .85,
-	PortraitBackgroundPosition = { "TOPRIGHT", 116, 55 },
+	PortraitBackgroundPosition = { "TOPRIGHT", 116 - 113, 55 - 39 },
 	PortraitBackgroundSize = { 173, 173 },
 	PortraitBackgroundTexture = GetMedia("party_portrait_back"),
 	PortraitBackgroundColor = { .5, .5, .5 },
-	PortraitShadePosition = { "TOPRIGHT", 83, 21 },
+	PortraitShadePosition = { "TOPRIGHT", 83 - 113, 21 - 39 },
 	PortraitShadeSize = { 107, 107 },
 	PortraitShadeTexture = GetMedia("shade-circle"),
-	PortraitBorderPosition = { "TOPRIGHT", 123, 61 },
+	PortraitBorderPosition = { "TOPRIGHT", 123 - 113, 61 - 39 },
 	PortraitBorderSize = { 187, 187 },
 
 	-- PvP Indicator
-	PvPIndicatorPosition = { "BOTTOMRIGHT", 72, -43 },
+	PvPIndicatorPosition = { "TOPRIGHT", -41, -91 },
 	PvPIndicatorSize = { 84, 84 },
 	PvPIndicatorAllianceTexture = GetMedia("icon_badges_alliance"),
 	PvPIndicatorHordeTexture = GetMedia("icon_badges_horde"),
 
 	-- Classification
-	ClassificationPosition = { "BOTTOMRIGHT", 72, -43 },
+	ClassificationPosition = { "TOPRIGHT", -41, -91 },
 	ClassificationSize = { 84, 84 },
 	ClassificationAllianceTexture = GetMedia("icon_badges_alliance"),
 	ClassificationBossTexture = GetMedia("icon_badges_boss"),
@@ -200,7 +201,7 @@ local config = {
 	ClassificationRareTexture = GetMedia("icon_classification_rare"),
 
 	-- Target Indicator
-	TargetIndicatorPosition = { "TOPRIGHT", 38, 36 },
+	TargetIndicatorPosition = { "TOPRIGHT", 38 - 113, 36 - 39 },
 	TargetIndicatorSize = { 96, 48 },
 	TargetIndicatorColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 	TargetIndicatorPetByEnemyTexture = GetMedia("icon_target_blue"),
@@ -233,7 +234,7 @@ local config = {
 	-----------------------------------------
 	Seasonal = {
 		-- Love Festival Target Eye
-		LoveFestivalCombatIndicatorPosition = { "TOPRIGHT", 14, 36 },
+		LoveFestivalCombatIndicatorPosition = { "TOPRIGHT", 14 - 113, 36 - 39 },
 		LoveFestivalTargetIndicatorSize = { 48, 48 },
 		LoveFestivalTargetIndicatorPetByEnemyTexture = GetMedia("icon-heart-blue"),
 		LoveFestivalTargetIndicatorYouByEnemyTexture = GetMedia("icon-heart-red"),
@@ -262,13 +263,13 @@ local config = {
 
 		-- Health Bar
 		HealthBarSize = { 40, 36 },
-		HealthBarPosition = { "TOPRIGHT", -24, -24 },
+		HealthBarPosition = { "TOPRIGHT", -24 - 113, -24 - 39 },
 		HealthBarTexture = GetMedia("hp_critter_bar"),
 		HealthBarColor = { Colors.health[1], Colors.health[2], Colors.health[3] },
 		HealthBarOrientation = "LEFT",
 		HealthBarSparkMap = tinyBarSparkMap,
 		HealthBackdropSize = { 105, 104 },
-		HealthBackdropPosition = { "CENTER", 176, 5 },
+		HealthBackdropPosition = { "TOPRIGHT", 105/2 + 63 - 439/2, 104/2 -34 -93/2 }, -- "CENTER", 63, -34
 		HealthBackdropTexture = GetMedia("hp_critter_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
@@ -282,12 +283,12 @@ local config = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 37 },
-		HealthBarPosition = { "TOPRIGHT", -27, -27 },
+		HealthBarPosition = { "TOPRIGHT", -27 - 113, -27 - 39 },
 		HealthBarTexture = GetMedia("hp_lowmid_bar"),
 		HealthBarOrientation = "LEFT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", -1, -.5 },
+		HealthBackdropPosition = { "TOPRIGHT", 716/2 - 116 - 439/2, 188/2 -40 -93/2 }, -- "CENTER", -116, -40
 		HealthBackdropTexture = GetMedia("hp_low_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
@@ -303,12 +304,12 @@ local config = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 37 },
-		HealthBarPosition = { "TOPRIGHT", -27, -27 },
+		HealthBarPosition = { "TOPRIGHT", -27 - 113, -27 - 39 },
 		HealthBarTexture = GetMedia("hp_lowmid_bar"),
 		HealthBarOrientation = "LEFT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", -2, -1 },
+		HealthBackdropPosition = { "TOPRIGHT", 716/2 - 116 - 439/2, 188/2 -40 -93/2 }, -- "CENTER", -116, -40
 		HealthBackdropTexture = GetMedia("hp_mid_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
@@ -324,12 +325,12 @@ local config = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 37 },
-		HealthBarPosition = { "TOPRIGHT", -27, -27 },
+		HealthBarPosition = { "TOPRIGHT", -27 - 113, -27 - 39 },
 		HealthBarTexture = GetMedia("hp_cap_bar"),
 		HealthBarOrientation = "LEFT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", -2, -1 },
+		HealthBackdropPosition = { "TOPRIGHT", 716/2 - 115 - 439/2, 188/2 -40 -93/2 }, -- "CENTER", -116, -40
 		HealthBackdropTexture = GetMedia("hp_cap_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
@@ -1256,15 +1257,16 @@ TargetFrameMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(HUD_EDIT_MODE_TARGET_FRAME_LABEL or TARGET)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(550, 210)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
 	anchor:SetEditModeAccountSetting(ns.IsRetail and Enum.EditModeAccountSetting.ShowTargetAndFocus)
-	anchor.frameOffsetX = -113
-	anchor.frameOffsetY = -39
-	anchor.framePoint = "TOPRIGHT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
+	--anchor.frameOffsetX = -113
+	--anchor.frameOffsetY = -39
+	--anchor.framePoint = "TOPRIGHT"
 
 	self.anchor = anchor
 
@@ -1277,9 +1279,7 @@ TargetFrameMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard target frame.
 	oUF:DisableBlizzard("target")

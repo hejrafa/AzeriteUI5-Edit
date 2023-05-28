@@ -29,9 +29,29 @@ if (ns.IsClassic) then return end
 local oUF = ns.oUF
 
 local ArenaFrameMod = ns:Merge(ns:NewModule("ArenaFrames", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
+local MFM = ns:GetModule("MovableFramesManager")
 
+local defaults = { profile = ns:Merge({
+	enabled = true,
+	savedPosition = {
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
+			[1] = "TOPRIGHT",
+			[2] = -64 * ns.API.GetEffectiveScale(),
+			[3] = -279 * ns.API.GetEffectiveScale()
+		}
+	}
+}, ns.UnitFrame.defaults) }
 
 ArenaFrameMod.OnInitialize = function(self)
+	self.db = ns.db:RegisterNamespace("ArenaFrames", defaults)
+
+	self:SetEnabledState(self.db.profile.enabled)
+
+	-- Register the available layout names
+	-- with the movable frames manager.
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard arena enemy frames.
 	for i = 1, MAX_ARENA_ENEMIES or 5 do -- constant created by Blizzard_ArenaUI in wrath

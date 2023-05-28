@@ -25,43 +25,38 @@
 --]]
 local Addon, ns = ...
 
-local LAB = LibStub("LibActionButton-1.0-GE")
+if (not C_Container) then return end
 
--- Default button config
-local defaults = {
-	outOfRangeColoring = "button",
-	tooltip = "enabled",
-	showGrid = false,
-	colors = {
-		range = { 1, .15, .15 },
-		mana = { .25, .25, 1 }
-	},
-	hideElements = {
-		macro = true,
-		hotkey = false,
-		equipped = true,
-		border = true,
-		borderIfEmpty = true
-	},
-	keyBoundTarget = false,
-	keyBoundClickButton = "LeftButton",
-	clickOnDown = true,
-	flyoutDirection = "UP"
-}
+local Containers = ns:NewModule("Containers", "LibMoreEvents-1.0")
 
-ns.ActionButtons = {}
-ns.ActionButton = {}
-ns.ActionButton.defaults = defaults
+local defaults = { profile = ns:Merge({
+	enabled = true,
+	sort = "ltr",
+	insert = "rtl"
+}, ns.moduleDefaults) }
 
-ns.ActionButton.Create = function(id, name, header, buttonConfig)
-
-	local button = LAB:CreateButton(id, name, header, buttonConfig)
-	button:SetAttribute("checkselfcast", true)
-	button:SetAttribute("checkfocuscast", true)
-	button:SetAttribute("checkmouseovercast", true)
-
-	ns.ActionButtons[button] = true
-
-	return button
+Containers.UpdateSettings = function(self)
+	if (C_Container.SetSortBagsRightToLeft) then
+		if (self.db.profile.sort == "rtl") then
+			C_Container.SetSortBagsRightToLeft(true)
+		elseif (self.db.profile.sort == "ltr") then
+			C_Container.SetSortBagsRightToLeft(false)
+		end
+	end
+	if (C_Container.SetInsertItemsLeftToRight) then
+		if (self.db.profile.sort == "ltr") then
+			C_Container.SetInsertItemsLeftToRight(true)
+		elseif (self.db.profile.sort == "rtl") then
+			C_Container.SetInsertItemsLeftToRight(false)
+		end
+	end
 end
 
+Containers.OnInitialize = function(self)
+	self.db = ns.db:RegisterNamespace("Containers", defaults)
+	self:SetEnabledState(self.db.profile.enabled)
+end
+
+Containers.OnEnable = function(self)
+	self:UpdateSettings()
+end

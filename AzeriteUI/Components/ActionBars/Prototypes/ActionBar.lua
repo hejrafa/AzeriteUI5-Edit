@@ -30,6 +30,9 @@ local ButtonBar = ns.ButtonBar.prototype
 local ActionBar = setmetatable({}, { __index = ButtonBar })
 local ActionBar_MT = { __index = ActionBar }
 
+local LFF = LibStub("LibFadingFrames-1.0")
+local MFM = ns:GetModule("MovableFramesManager")
+
 local select, string_format = select, string.format
 
 local playerClass = ns.PlayerClass
@@ -48,13 +51,44 @@ if (ns.IsRetail) then
 	BINDTEMPLATE_BY_ID[MULTIBAR_7_ACTIONBAR_PAGE] = "MULTIACTIONBAR7BUTTON%d"
 end
 
+-- Exit button for Wrath & Retail
+local exitButton = {
+	func = function(button)
+		if (UnitExists("vehicle")) then
+			VehicleExit()
+		else
+			PetDismiss()
+		end
+	end,
+	tooltip = _G.LEAVE_VEHICLE,
+	texture = [[Interface\Icons\achievement_bg_kill_carrier_opposing_flagroom]]
+}
+
 local defaults = ns:Merge({
+	enabled = false,
+	enableBarFading = false, -- whether to enable non-combat/hover button fading
+	fadeFrom = 1, -- which button to start the button fading from
+	numbuttons = 12, -- total number of buttons on the bar
+	layout = "grid", -- currently applied layout type
+	startAt = 1, -- at which button the zigzag pattern should begin
+	growth = "horizontal", -- which direction the bar goes in
+	growthHorizontal = "RIGHT", -- the bar's horizontal growth direction
+	growthVertical = "UP", -- the bar's vertical growth direction
+	padding = 8, -- horizontal padding between the buttons
+	breakpadding = 8, -- vertical padding between the buttons
+	breakpoint = 12, -- when to start a new grid row
+	offset = 44/64, -- 44 -- relative offset in the growth direction for the alternate zigzag row as a fraction of button size.
+	hitrects = { -10, -10, -10, -10 },
 	visibility = {
 		dragon = false,
 		possess = false,
 		overridebar = false,
 		vehicleui = false
-	}
+	},
+	scale = ns.API.GetEffectiveScale(),
+	[1] = "CENTER",
+	[2] = 0,
+	[3] = 0
 }, ns.ButtonBar.defaults)
 
 ns.ActionBar = {}
@@ -119,9 +153,9 @@ ns.ActionBar.Create = function(self, id, config, name)
 	return bar
 end
 
-ActionBar.CreateButton = function(self, config)
+ActionBar.CreateButton = function(self, buttonConfig)
 
-	local button = ButtonBar.CreateButton(self, config)
+	local button = ButtonBar.CreateButton(self, buttonConfig)
 
 	for k = 1,18 do
 		button:SetState(k, "action", (k - 1) * 12 + button.id)
@@ -132,53 +166,96 @@ ActionBar.CreateButton = function(self, config)
 	button:SetAttribute("statehidden", nil)
 	button:UpdateAction()
 
+	if ((ns.IsWrath or ns.IsRetail) and (self.id == 1 and button.id == 7)) then
+		button:SetState(16, "custom", exitButton)
+		button:SetState(17, "custom", exitButton)
+		button:SetState(18, "custom", exitButton)
+	end
+
 	local keyBoundTarget = string_format(BINDTEMPLATE_BY_ID[self.id], button.id)
 	button.keyBoundTarget = keyBoundTarget
 
-	local buttonConfig = button.config or {}
+	local buttonConfig = buttonConfig or button.config or {}
 	buttonConfig.keyBoundTarget = keyBoundTarget
 
 	button:UpdateConfig(buttonConfig)
 end
 
 ActionBar.Enable = function(self)
+	ButtonBar.Enable(self)
+	self:Update()
+end
+
+ActionBar.Disable = function(self)
+	ButtonBar.Disable(self)
+	self:Update()
+end
+
+ActionBar.Update = function(self)
 	if (InCombatLockdown()) then return end
 
-	self.config.enabled = true
-
+	self:UpdatePosition()
 	self:UpdateButtons()
 	self:UpdateButtonLayout()
 	self:UpdateStateDriver()
 	self:UpdateVisibilityDriver()
 	self:UpdateBindings()
+	self:UpdateFading()
 end
 
-ActionBar.Disable = function(self)
-	if (InCombatLockdown()) then return end
-
-	self.config.enabled = false
-
-	self:UpdateVisibilityDriver()
-end
-
-ActionBar.SetEnabled = function(self, enable)
-	if (InCombatLockdown()) then return end
-
-	self.config.enabled = not not enable
-
-	if (self.config.enabled) then
-		self:Enable()
+ActionBar.UpdateFading = function(self)
+	if (self.config.enabled and self.config.enableBarFading) then
+		for id = 1, #self.buttons do
+			LFF:UnregisterFrameForFading(self.buttons[id])
+		end
+		for id = self.config.fadeFrom or 1, #self.buttons do
+			LFF:RegisterFrameForFading(self.buttons[id], "actionbuttons", unpack(self.config.hitrects))
+		end
 	else
-		self:Disable()
+		for id, button in next,self.buttons do
+			LFF:UnregisterFrameForFading(self.buttons[id])
+		end
+	end
+	-- Our fade frame unregistration sets alpha back to full opacity,
+	-- this conflicts with how actionbuttons work so we're faking events to fix it.
+	local LAB = LibStub("LibActionButton-1.0-GE")
+	local OnEvent = LAB.eventFrame:GetScript("OnEvent")
+	if (OnEvent) then
+		OnEvent(LAB, "ACTIONBAR_SHOWGRID")
+		OnEvent(LAB, "ACTIONBAR_HIDEGRID")
 	end
 end
 
-ActionBar.IsEnabled = function(self)
-	return self.config.enabled
+ActionBar.UpdatePosition = function(self)
+	if (InCombatLockdown()) then return end
+
+	self:SetScale(self.config.scale)
+	self:ClearAllPoints()
+	self:SetPoint(self.config[1], UIParent, self.config[1], self.config[2]/self.config.scale, self.config[3]/self.config.scale)
 end
 
-ActionBar.UpdateDragonRiding = function(self, isDragonRiding)
-	self.isDragonRiding = isDragonRiding
+ActionBar.UpdateDefaults = function(self)
+	if (not self.anchor or not self.defaults) then return end
+
+	self.defaults.scale = self.anchor:GetDefaultScale()
+	self.defaults[1], self.defaults[2], self.defaults[3] = self.anchor:GetDefaultPosition()
+end
+
+ActionBar.UpdateAnchor = function(self)
+	if (self.anchor) then
+		self.anchor:SetSize(self:GetSize())
+		self.anchor:SetScale(self.config.scale)
+		self.anchor:ClearAllPoints()
+		self.anchor:SetPoint(self.config[1], UIParent, self.config[1], self.config[2], self.config[3])
+	end
+end
+
+ActionBar.UpdateButtons = function(self)
+	ButtonBar.UpdateButtons(self)
+end
+
+ActionBar.UpdateButtonLayout = function(self)
+	ButtonBar.UpdateButtonLayout(self)
 end
 
 ActionBar.UpdateBindings = function(self)
@@ -288,4 +365,8 @@ ActionBar.UpdateVisibilityDriver = function(self)
 	UnregisterStateDriver(self, "vis")
 	self:SetAttribute("state-vis", "0")
 	RegisterStateDriver(self, "vis", visdriver or "hide")
+end
+
+ActionBar.UpdateDragonRiding = function(self, isDragonRiding)
+	self.isDragonRiding = isDragonRiding
 end

@@ -25,6 +25,8 @@
 --]]
 local Addon, ns = ...
 
+local MFM = ns:GetModule("MovableFramesManager")
+
 local Bar = ns.Bar.prototype
 
 local ButtonBar = setmetatable({}, { __index = Bar })
@@ -32,6 +34,7 @@ local ButtonBar_MT = { __index = ButtonBar }
 
 -- Lua API
 local next = next
+local math_abs = math.abs
 local math_ceil = math.ceil
 local math_floor = math.floor
 local math_max = math.max
@@ -83,20 +86,7 @@ local maps = {
 }
 
 local defaults = ns:Merge({
-	numbuttons = 12,
-	layout = "grid",
-	grid = {
-		growth = "horizontal",
-		growthHorizontal = "RIGHT",
-		growthVertical = "DOWN",
-		padding = 2,
-		breakpoint = 12,
-		breakpadding = 2
-	},
-	hidemacrotext = false,
-	hidehotkey = false,
-	hideequipped = false,
-	hideborder = false
+	numbuttons = 0
 }, ns.Bar.defaults)
 
 ns.ButtonBar = {}
@@ -107,17 +97,17 @@ ns.ButtonBar.Create = function(self, id, config, name)
 	local bar = setmetatable(ns.Bar:Create(id, config, name), ButtonBar_MT)
 
 	bar.buttons = {}
-	bar.buttonConfig = ns.ActionButton.defaults
+	bar.buttonConfig = ns:Merge({}, ns.ActionButton.defaults)
 	bar.buttonWidth = 64
 	bar.buttonHeight = 64
 
 	return bar
 end
 
-ButtonBar.CreateButton = function(self, config)
+ButtonBar.CreateButton = function(self, buttonConfig)
 
 	local id = #self.buttons + 1
-	local button = ns.ActionButton.Create(id, self:GetName().."Button"..id, self, config)
+	local button = ns.ActionButton.Create(id, self:GetName().."Button"..id, self, buttonConfig)
 
 	self:SetFrameRef("Button"..id, button)
 	self.buttons[id] = button
@@ -137,11 +127,9 @@ ButtonBar.UpdateButtons = function(self)
 
 	for id,button in next,buttons do
 		if (id <= numbuttons) then
-			--button:SetEnabled(true)
 			button:Show()
 			button:SetAttribute("statehidden", nil)
 		else
-			--button:SetEnabled(false)
 			button:Hide()
 			button:SetAttribute("statehidden", true)
 		end
@@ -153,107 +141,152 @@ ButtonBar.UpdateButtonLayout = function(self)
 	if (InCombatLockdown()) then return end
 
 	local buttons = self.buttons
-	local numbuttons = self.numbuttons or #buttons
+	local numbuttons = self.config.numbuttons or #buttons
 
 	if (numbuttons == 0) then return end
 
 	local layout = self.config.layout
 
-	if (layout == "map") then
+	if (layout == "zigzag") then
 
-		local map = maps[self.config.maptype]
-		local left, right, top, bottom
+		self:SetSize(2,2) -- Just set a temporary size to avoid positioning bugs
+
+		local config = self.config
+		local buttonWidth = self.buttonWidth
+		local buttonHeight = self.buttonHeight
+
+		local fullZag = config.startAt == 1
+		local counter, width, height = 0
+		local left, right, top, bottom = 0, 0, 0, 0
+		local point = (config.growthVertical == "UP" and "BOTTOM" or "TOP")..(config.growthHorizontal == "RIGHT" and "LEFT" or "RIGHT")
+		local offsetX, offsetY
 
 		for id,button in next,buttons do
-			button:ClearAllPoints()
-			button:SetPoint(unpack(map[id]))
 
-			local bleft = button:GetLeft()
-			local bright = button:GetRight()
-			local btop = button:GetTop()
-			local bbottom = button:GetBottom()
+			local isZigZag = (id >= config.startAt) and ((config.startAt - id)%2 == 0)
 
-			left = left and math_min(left, bleft) or bleft
-			right = right and math_max(right, bright) or bright
-			top = top and math_max(top, btop) or btop
-			bottom = bottom and math_min(bottom, bbottom) or bbottom
+			if (config.growth == "horizontal") then
 
-		end
+				if (config.growthHorizontal == "RIGHT") then
+					offsetX = (buttonWidth + config.padding) * (counter - (isZigZag and 1 or 0)) + (isZigZag and (config.offset * buttonWidth) or 0)
+					left = 0
+					right = math_max(right, offsetX + buttonWidth)
 
-		local width, height = right-left, top-bottom
+				elseif (config.growthHorizontal == "LEFT") then
+					offsetX = -((buttonWidth + config.padding) * (counter - (isZigZag and 1 or 0)) + (isZigZag and (config.offset * buttonWidth) or 0))
+					left = math_min(left, offsetX - buttonWidth)
+					right = 0
+				end
 
-		self:SetSize(width, height)
+				if (config.growthVertical == "UP") then
+					offsetY = isZigZag and (buttonHeight + config.breakpadding) or 0
+					top = math_max(top, offsetY + buttonHeight)
+					bottom = 0
 
-		if (self.anchor) then
-			self.anchor:SetSize(width, height)
+				elseif (config.growthVertical == "DOWN") then
+					offsetY = isZigZag and -(buttonHeight + config.breakpadding) or 0
+					top = 0
+					bottom = math_min(bottom, offsetY - buttonHeight)
+				end
 
-			-- Text rotation is not available in Classic.
-			if (ns.IsWrath or ns.IsRetail) then
-				self.anchor.Text:SetRotation(0)
-				self.anchor.Title:SetRotation(0)
+
+			elseif (config.growth == "vertical") then
+
+				if (config.growthVertical == "DOWN") then
+					offsetY = -((buttonHeight + config.padding) * counter + (isZigZag and (config.offset * buttonWidth) or 0))
+					top = 0
+					bottom = math_min(bottom, offsetY - buttonHeight)
+
+				elseif (config.growthVertical == "UP") then
+					offsetY = (buttonHeight + config.padding) * counter + (isZigZag and (config.offset * buttonWidth) or 0)
+					top = math_max(top, offsetY + buttonHeight)
+					bottom = 0
+				end
+
+				if (config.growthHorizontal == "RIGHT") then
+					offsetX = isZigZag and (buttonWidth + config.padding) or 0
+					left = 0
+					right = math_max(right, offsetX + buttonWidth)
+
+				elseif (config.growthHorizontal == "LEFT") then
+					offsetX = isZigZag and -(buttonWidth + config.padding) or 0
+					left = math_min(left, offsetX - buttonWidth)
+					right = 0
+				end
+
 			end
+
+			--print(button:GetName(), point, offsetX, offsetY)
+
+			if (not isZigZag) then
+				counter = counter + 1
+			end
+
+			button:ClearAllPoints()
+			button:SetPoint(point, offsetX, offsetY)
+
 		end
 
-		return
+		self:SetSize(math_abs(left - right), math_abs(top - bottom))
 
 	elseif (layout == "grid") then
 
-		local grid = self.config.grid
+		local config = self.config
 
 		local buttonWidth = self.buttonWidth
 		local buttonHeight = self.buttonHeight
 
-		local totalbreaks = math_ceil(self.config.numbuttons/grid.breakpoint)
+		local totalbreaks = math_ceil(config.numbuttons/config.breakpoint)
 		local width, height
 
-		if (grid.growth == "horizontal") then
-			width = buttonWidth*grid.breakpoint + grid.padding*(grid.breakpoint - 1)
-			height = buttonHeight*totalbreaks + (grid.breakpadding or grid.padding)*(totalbreaks-1)
+		if (config.growth == "horizontal") then
+			width = buttonWidth*config.breakpoint + config.padding*(config.breakpoint - 1)
+			height = buttonHeight*totalbreaks + (config.breakpadding or config.padding)*(totalbreaks-1)
 
-		elseif (grid.growth == "vertical") then
-			width = buttonWidth*totalbreaks + (grid.breakpadding or grid.padding)*(totalbreaks-1)
-			height = buttonHeight*grid.breakpoint + grid.padding*(grid.breakpoint - 1)
+		elseif (config.growth == "vertical") then
+			width = buttonWidth*totalbreaks + (config.breakpadding or config.padding)*(totalbreaks-1)
+			height = buttonHeight*config.breakpoint + config.padding*(config.breakpoint - 1)
 		end
 
 		self:SetSize(width, height)
 
-		local point = (grid.growthVertical == "UP" and "BOTTOM" or "TOP")..(grid.growthHorizontal == "RIGHT" and "LEFT" or "RIGHT")
+		local point = (config.growthVertical == "UP" and "BOTTOM" or "TOP")..(config.growthHorizontal == "RIGHT" and "LEFT" or "RIGHT")
 		local offsetX, offsetY = 0,0
 
 		for id,button in next,buttons do
 
-			local breakpoint = (id - 1)%grid.breakpoint == 0
-			local numbreaks = breakpoint and math_floor((id - 1)/grid.breakpoint)
+			local breakpoint = (id - 1)%config.breakpoint == 0
+			local numbreaks = breakpoint and math_floor((id - 1)/config.breakpoint)
 
-			if (grid.growth == "horizontal") then
+			if (config.growth == "horizontal") then
 				if (breakpoint) then
 					offsetX = 0
-					if (grid.growthVertical == "UP") then
-						offsetY = (buttonHeight + (grid.breakpadding or grid.padding)) * numbreaks
-					elseif (grid.growthVertical == "DOWN") then
-						offsetY = -(buttonHeight + (grid.breakpadding or grid.padding)) * numbreaks
+					if (config.growthVertical == "UP") then
+						offsetY = (buttonHeight + (config.breakpadding or config.padding)) * numbreaks
+					elseif (config.growthVertical == "DOWN") then
+						offsetY = -(buttonHeight + (config.breakpadding or config.padding)) * numbreaks
 					end
 				else
-					if (grid.growthHorizontal == "RIGHT") then
-						offsetX = offsetX + (buttonWidth + grid.padding)
-					elseif (grid.growthHorizontal == "LEFT") then
-						offsetX = offsetX - (buttonWidth + grid.padding)
+					if (config.growthHorizontal == "RIGHT") then
+						offsetX = offsetX + (buttonWidth + config.padding)
+					elseif (config.growthHorizontal == "LEFT") then
+						offsetX = offsetX - (buttonWidth + config.padding)
 					end
 				end
 
-			elseif (grid.growth == "vertical") then
+			elseif (config.growth == "vertical") then
 				if (breakpoint) then
-					if (grid.growthHorizontal == "RIGHT") then
-						offsetX = (buttonWidth + (grid.breakpadding or grid.padding)) * numbreaks
-					elseif (grid.growthHorizontal == "LEFT") then
-						offsetX = -(buttonWidth + (grid.breakpadding or grid.padding)) * numbreaks
+					if (config.growthHorizontal == "RIGHT") then
+						offsetX = (buttonWidth + (config.breakpadding or config.padding)) * numbreaks
+					elseif (config.growthHorizontal == "LEFT") then
+						offsetX = -(buttonWidth + (config.breakpadding or config.padding)) * numbreaks
 					end
 					offsetY = 0
 				else
-					if (grid.growthVertical == "DOWN") then
-						offsetY = offsetY - (buttonWidth + grid.padding)
-					elseif (grid.growthVertical == "UP") then
-						offsetY = offsetY + (buttonWidth + grid.padding)
+					if (config.growthVertical == "DOWN") then
+						offsetY = offsetY - (buttonWidth + config.padding)
+					elseif (config.growthVertical == "UP") then
+						offsetY = offsetY + (buttonWidth + config.padding)
 					end
 				end
 			end

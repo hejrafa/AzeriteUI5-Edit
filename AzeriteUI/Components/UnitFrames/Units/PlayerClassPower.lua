@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local ClassPowerMod = ns:Merge(ns:NewModule("PlayerClassPowerFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local next = next
@@ -50,11 +50,12 @@ local playerXPDisabled = IsXPUserDisabled()
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "CENTER",
-			[2] = -(285 - 124/2),
-			[3] = -(168 - 168/2)
+			[2] = -(285 - 124/2) * ns.API.GetEffectiveScale(),
+			[3] = -(168 - 168/2) * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -449,7 +450,7 @@ end
 
 -- Frame Script Handlers
 --------------------------------------------
-local UnitFrame_OnEvent = function(self, event)
+local UnitFrame_OnEvent = function(self, event, ...)
 	if (event == "PLAYER_REGEN_DISABLED") then
 		local runes = self.Runes
 		if (runes and not runes.inCombat) then
@@ -590,14 +591,12 @@ ClassPowerMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(CLASS)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(124, 168)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "TOPLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -609,7 +608,5 @@ ClassPowerMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 end

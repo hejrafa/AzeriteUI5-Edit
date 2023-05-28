@@ -25,7 +25,7 @@
 --]]
 local Addon, ns = ...
 local ErrorsFrame = ns:NewModule("ErrorsFrame", "LibMoreEvents-1.0", "AceHook-3.0")
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local pairs, unpack = pairs, unpack
@@ -38,11 +38,11 @@ local GetMedia = ns.API.GetMedia
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "TOP",
-			[2] = 0,
-			[3] = -600
+			[2] = 0 * ns.API.GetEffectiveScale(),
+			[3] = -600 * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.moduleDefaults) }
@@ -127,131 +127,31 @@ ErrorsFrame.InitializeMovableFrameAnchor = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(SYSTEM_MESSAGES)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(760, 22)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
-	anchor.frameOffsetX = 0
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "CENTER"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
+	anchor:SetDefaultScale(ns.API.GetEffectiveScale)
+	anchor.PreUpdate = function() self:UpdateAnchor() end
 
 	self.anchor = anchor
-
 end
 
 ErrorsFrame.UpdatePositionAndScale = function(self)
+	if (not self.frame) then return end
 
-	local savedPosition = self.currentLayout and self.db.profile.savedPosition[self.currentLayout]
-	if (savedPosition) then
-		local point, x, y = unpack(savedPosition)
-		local scale = savedPosition.scale
-		local frame = self.frame
-		local anchor = self.anchor
+	local config = self.db.profile.savedPosition[MFM:GetLayout()]
 
-		-- Set the scale before positioning,
-		-- or everything will be wonky.
-		frame:SetScale(scale * ns.API.GetDefaultElementScale())
-
-		if (anchor and anchor.framePoint) then
-			-- Position the frame at the anchor,
-			-- with the given point and offsets.
-			frame:ClearAllPoints()
-			frame:SetPoint(anchor.framePoint, anchor, anchor.framePoint, (anchor.frameOffsetX or 0)/scale, (anchor.frameOffsetY or 0)/scale)
-
-			-- Parse where this actually is relative to UIParent
-			local point, x, y = ns.API.GetPosition(frame)
-
-			-- Reposition the frame relative to UIParent,
-			-- to avoid it being hooked to our anchor in combat.
-			frame:ClearAllPoints()
-			frame:SetPoint(point, UIParent, point, x, y)
-		end
-	end
-
+	self.frame:SetScale(config.scale)
+	self.frame:ClearAllPoints()
+	self.frame:SetPoint(config[1], UIParent, config[1], config[2]/config.scale, config[3]/config.scale)
 end
 
-ErrorsFrame.OnAnchorUpdate = function(self, reason, layoutName, ...)
-	local savedPosition = self.db.profile.savedPosition
-	local lockdown = InCombatLockdown()
-
-	if (reason == "LayoutDeleted") then
-		if (savedPosition[layoutName]) then
-			savedPosition[layoutName] = nil
-		end
-
-	elseif (reason == "LayoutsUpdated") then
-
-		if (savedPosition[layoutName]) then
-
-			self.anchor:SetScale(savedPosition[layoutName].scale or self.anchor:GetScale())
-			self.anchor:ClearAllPoints()
-			self.anchor:SetPoint(unpack(savedPosition[layoutName]))
-
-			local defaultPosition = defaults.profile.savedPosition[layoutName]
-			if (defaultPosition) then
-				self.anchor:SetDefaultPosition(unpack(defaultPosition))
-			end
-
-			self.initialPositionSet = true
-				--self.currentLayout = layoutName
-
-		else
-			-- The user is unlikely to have a preset with our name
-			-- on the first time logging in.
-			if (not self.initialPositionSet) then
-				--print("setting default position for", layoutName, self.frame:GetName())
-
-				local defaultPosition = defaults.profile.savedPosition.Azerite
-
-				self.anchor:SetScale(defaultPosition.scale)
-				self.anchor:ClearAllPoints()
-				self.anchor:SetPoint(unpack(defaultPosition))
-				self.anchor:SetDefaultPosition(unpack(defaultPosition))
-
-				self.initialPositionSet = true
-				--self.currentLayout = layoutName
-			end
-
-			savedPosition[layoutName] = { self.anchor:GetPosition() }
-			savedPosition[layoutName].scale = self.anchor:GetScale()
-		end
-
-		self.currentLayout = layoutName
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "PositionUpdated") then
-		-- Fires when position has been changed.
-		local point, x, y = ...
-
-		savedPosition[layoutName] = { point, x, y }
-		savedPosition[layoutName].scale = self.anchor:GetScale()
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "ScaleUpdated") then
-		-- Fires when scale has been mousewheel updated.
-		local scale = ...
-
-		savedPosition[layoutName].scale = scale
-
-		self:UpdatePositionAndScale()
-
-	elseif (reason == "Dragging") then
-		-- Fires on every drag update. Spammy.
-		--if (not self.incombat) then
-			self:OnAnchorUpdate("PositionUpdated", layoutName, ...)
-		--end
-
-	elseif (reason == "CombatStart") then
-		-- Fires right before combat lockdown for visible anchors.
-
-
-	elseif (reason == "CombatEnd") then
-		-- Fires when combat lockdown ends for visible anchors.
-
-	end
+ErrorsFrame.UpdateAnchor = function(self)
+	local config = self.db.profile.savedPosition[MFM:GetLayout()]
+	self.anchor:SetScale(config.scale)
+	self.anchor:ClearAllPoints()
+	self.anchor:SetPoint(config[1], UIParent, config[1], config[2], config[3])
 end
 
 ErrorsFrame.OnRegisterEvent = function(self, event, ...)
@@ -264,10 +164,11 @@ ErrorsFrame.OnUnregisterEvent = function(self, event)
 end
 
 ErrorsFrame.OnEvent = function(self, event, ...)
-	if event == "SYSMSG" then
+	if (event == "SYSMSG") then
 		local msg, r, g, b = ...
 		if (not msg or blackList[msg]) then return end
 		UIErrorsFrame:CheckAddMessage(msg, r, g, b, 1)
+
 	elseif (event == "UI_ERROR_MESSAGE") then
 		local messageType, msg = ...
 		if (not msg or blackList.msgTypes[messageType] or blackList[msg]) then return end
@@ -298,6 +199,63 @@ ErrorsFrame.OnEvent = function(self, event, ...)
 		else
 			UIErrorsFrame:AddMessage(msg, 1, .82, 0, 1)
 		end
+
+	elseif (event == "PLAYER_ENTERING_WORLD") then
+		self.incombat = nil
+		self:UpdatePositionAndScale()
+
+	elseif (event == "PLAYER_REGEN_ENABLED") then
+		if (InCombatLockdown()) then return end
+		self.incombat = nil
+
+	elseif (event == "PLAYER_REGEN_DISABLED") then
+		self.incombat = true
+
+	elseif (event == "MFM_LayoutsUpdated") then
+		local LAYOUT = ...
+
+		if (not self.db.profile.savedPosition[LAYOUT]) then
+			self.db.profile.savedPosition[LAYOUT] = ns:Merge({}, defaults.profile.savedPosition[MFM:GetDefaultLayout()])
+		end
+
+		self:UpdatePositionAndScale()
+		self:UpdateAnchor()
+
+	elseif (event == "MFM_LayoutDeleted") then
+		local LAYOUT = ...
+
+		self.db.profile.savedPosition[LAYOUT] = nil
+
+	elseif (event == "MFM_PositionUpdated") then
+		local LAYOUT, anchor, point, x, y = ...
+
+		if (anchor ~= self.anchor) then return end
+
+		self.db.profile.savedPosition[LAYOUT][1] = point
+		self.db.profile.savedPosition[LAYOUT][2] = x
+		self.db.profile.savedPosition[LAYOUT][3] = y
+
+		self:UpdatePositionAndScale()
+
+	elseif (event == "MFM_AnchorShown") then
+		local LAYOUT, anchor, point, x, y = ...
+
+		if (anchor ~= self.anchor) then return end
+
+	elseif (event == "MFM_ScaleUpdated") then
+		local LAYOUT, anchor, scale = ...
+
+		if (anchor ~= self.anchor) then return end
+
+		self.db.profile.savedPosition[LAYOUT].scale = scale
+		self:UpdatePositionAndScale()
+
+	elseif (event == "MFM_Dragging") then
+		if (not self.incombat) then
+			if (select(2, ...) ~= self.anchor) then return end
+
+			self:OnEvent("MFM_PositionUpdated", ...)
+		end
 	end
 end
 
@@ -308,10 +266,21 @@ ErrorsFrame.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	self:InitializeErrorsFrame()
 	self:InitializeMovableFrameAnchor()
+end
+
+ErrorsFrame.OnEnable = function(self)
+
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
+	self:RegisterEvent("UPDATE_INVENTORY_ALERTS", "OnEvent")
+
+	ns.RegisterCallback(self, "MFM_LayoutDeleted", "OnEvent")
+	ns.RegisterCallback(self, "MFM_LayoutsUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_PositionUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_AnchorShown", "OnEvent")
+	ns.RegisterCallback(self, "MFM_ScaleUpdated", "OnEvent")
+	ns.RegisterCallback(self, "MFM_Dragging", "OnEvent")
 end

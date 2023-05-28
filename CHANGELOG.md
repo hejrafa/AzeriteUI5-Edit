@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file. Be aware th
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased] 2023-05-25
+- This version is backwards incompatible and requires a full reset of its settings.
+- This version is compatible with Wrath 3.4.2 PTR.
+
+### Added
+- Added the command `/resetsettings` to fully reset the AzeriteUI stored settings to their defaults.
+- Added an options menu. The menu is accessible from the addon section of the interface options panels.
+- Added threat glow to the player unit frame.
+- Started working on proper localization for the addon. A lot of general phrases copied from blizzard are already in place, but some phrases and longer texts remains untranslated for non-English locales. Work in progress.
+
+### Changed
+- Moved settings for unitframe aura sorting into the new options menu.
+- Moved settings for Retail bag sorting and new item insertion into the new options menu.
+- The player auras located in the upper right corner are now movable, and has new settings in the new option menu for visibility.
+- Redid scaling options for most frames. The default scale will now be a scale that gives our intended size relative to your current uiscale in the game's graphics settings. All movable frames will also get their scales and positions autoadjusted when the user changes the game's uiscale.
+- Redid how our movable frame system works in relation to saved settings. Most settings within modules like the actionbars should now be tied to the current movable frame profile. Meaning settings like enabled bars and bar layouts also change alongside the positioning profile.
+
+### Fixed
+- Updated TaintLess.xml to the most recent version to be compatible with Wrath 3.4.2.
+- Fixed an issue with the actionbar frame fading that would prevent fading from working correctly after a settings change.
+
+### Removed
+- Removed most chat commands for actionbar visibility and layout, bag sorting and item insertion and unitframe aura sorting. All these settings have been moved to the new options menu.
+
 ## [5.0.65-RC] 2023-05-06
 ### Fixed
 - Classic Era enemy castbars are once again working as intended.

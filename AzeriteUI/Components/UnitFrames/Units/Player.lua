@@ -27,7 +27,7 @@ local Addon, ns = ...
 local oUF = ns.oUF
 
 local PlayerFrameMod = ns:Merge(ns:NewModule("PlayerFrame", "LibMoreEvents-1.0"), ns.UnitFrame.modulePrototype)
-local MFM = ns:GetModule("MovableFramesManager", true)
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- Lua API
 local next = next
@@ -50,11 +50,12 @@ local playerIsRetribution = playerClass == "PALADIN" and (ns.IsRetail and GetSpe
 local defaults = { profile = ns:Merge({
 	enabled = true,
 	savedPosition = {
-		Azerite = {
-			scale = 1,
+		[MFM:GetDefaultLayout()] = {
+			enabled = true,
+			scale = ns.API.GetEffectiveScale(),
 			[1] = "BOTTOMLEFT",
-			[2] = 46,
-			[3] = 100
+			[2] = 46 * ns.API.GetEffectiveScale(),
+			[3] = 100 * ns.API.GetEffectiveScale()
 		}
 	}
 }, ns.UnitFrame.defaults) }
@@ -91,9 +92,8 @@ local config = {
 
 	-- General Settings
 	-----------------------------------------
-	Size = { 439, 93 },
-	--Position = { "BOTTOMLEFT", 167, 100 },
-	HitRectInsets = { -110, 0, -60, 6 },
+	Size = { 560, 180 },
+	HitRectInsets = { 0, 0, -60, 6 },
 
 	-- Health Value Text
 	HealthValuePosition = { "LEFT", 27, 4 },
@@ -142,20 +142,20 @@ local config = {
 	CombatFeedbackFontSmall = GetFont(18, true), -- glancing blow font
 
 	-- Combat Indicator
-	CombatIndicatorPosition = { "BOTTOMLEFT", -81, -18 },
+	CombatIndicatorPosition = { "BOTTOMLEFT", 40, -18 },
 	CombatIndicatorSize = { 80,80 },
 	CombatIndicatorTexture = GetMedia("icon-combat"),
 	CombatIndicatorColor = { Colors.ui[1] *.75, Colors.ui[2] *.75, Colors.ui[3] *.75 },
 
 	-- PvP Indicator
-	PvPIndicatorPosition = { "BOTTOMLEFT", -81, -18 },
+	PvPIndicatorPosition = { "BOTTOMLEFT", 40, -18 },
 	PvPIndicatorSize = { 84, 84 },
 	PvPIndicatorAllianceTexture = GetMedia("icon_badges_alliance"),
 	PvPIndicatorHordeTexture = GetMedia("icon_badges_horde"),
 
 	-- Auras
 	-----------------------------------------
-	AurasPosition = { "BOTTOMLEFT", 37, 91 },
+	AurasPosition = { "BOTTOMLEFT", 158, 91 },
 	AurasSize = { 40*8 - 4, 40*2 - 4 },
 	AuraSize = 36,
 	AuraSpacing = 4,
@@ -177,7 +177,7 @@ local config = {
 	-----------------------------------------
 	Seasonal = {
 		-- Love Festival Combat Indicator
-		LoveFestivalCombatIndicatorPosition = { "BOTTOMLEFT", -61, 2 },
+		LoveFestivalCombatIndicatorPosition = { "BOTTOMLEFT", 60, 2 },
 		LoveFestivalCombatIndicatorSize = { 48, 48 },
 		LoveFestivalCombatIndicatorTexture = GetMedia("icon-heart-red"),
 		LoveFestivalCombatIndicatorColor = { Colors.ui[1] *.75, Colors.ui[2] *.75, Colors.ui[3] *.75 },
@@ -215,22 +215,26 @@ local config = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 37 },
-		HealthBarPosition = { "BOTTOMLEFT", 27, 27 },
+		HealthBarPosition = { "BOTTOMLEFT", 148, 27 },
 		HealthBarTexture = GetMedia("hp_lowmid_bar"),
 		HealthBarColor = { Colors.health[1], Colors.health[2], Colors.health[3] },
 		HealthBarOrientation = "RIGHT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", 1, -.5 },
+		HealthBackdropPosition = { "BOTTOMLEFT", -17, -48 },
 		HealthBackdropTexture = GetMedia("hp_low_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
 		HealthCastOverlayColor = { 1, 1, 1, .35 },
+
+		-- Health Bar Threat
+		HealthThreatSize = { 716, 188 },
+		HealthThreatPosition = { "BOTTOMLEFT", -15, -47 },
 		HealthThreatTexture = GetMedia("hp_low_case_glow"),
 
 		-- Power Crystal
 		PowerBarSize = { 120, 140 },
-		PowerBarPosition = { "BOTTOMLEFT", -101, 38 },
+		PowerBarPosition = { "BOTTOMLEFT", 20, 38 },
 		PowerBarTexture = ns.IsWrath and GetMedia("power-crystal-ice-front") or GetMedia("power_crystal_front"),
 		PowerBarTexCoord = { 50/255, 206/255, 37/255, 219/255 },
 		PowerBarOrientation = "UP",
@@ -245,9 +249,18 @@ local config = {
 		PowerBarForegroundTexture = GetMedia("pw_crystal_case_low"),
 		PowerBarForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 
+		-- Power Crystal Threat
+		PowerBarThreatSize = { 196, 196 },
+		PowerBarThreatPosition = { "CENTER", 0, 1 },
+		PowerBarThreatTexture = GetMedia("power_crystal_glow"),
+
+		PowerBackdropThreatSize = { 198,98 },
+		PowerBackdropThreatPosition = { "BOTTOM", 7, -51 },
+		PowerBackdropThreatTexture = GetMedia("pw_crystal_case_glow"),
+
 		-- Mana Orb
 		ManaOrbSize = { 103, 103 },
-		ManaOrbPosition = { "BOTTOMLEFT", -92, 27 },
+		ManaOrbPosition = { "BOTTOMLEFT", 29, 27 },
 		ManaOrbTexture = { GetMedia("orb2"), GetMedia("orb2") },
 
 		ManaOrbBackdropSize = { 180, 180 },
@@ -265,28 +278,37 @@ local config = {
 		ManaOrbForegroundTexture = GetMedia("orb_case_low"),
 		ManaOrbForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 
+		-- Mana Orb Threat
+		ManaOrbThreatSize = { 188, 188 },
+		ManaOrbThreatPosition = { "CENTER", 0, 0 },
+		ManaOrbThreatTexture = GetMedia("orb_case_glow")
 
 	},
 	Hardened = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 37 },
-		HealthBarPosition = { "BOTTOMLEFT", 27, 27 },
+		HealthBarPosition = { "BOTTOMLEFT", 148, 27 },
 		HealthBarTexture = GetMedia("hp_lowmid_bar"),
 		HealthBarColor = { Colors.health[1], Colors.health[2], Colors.health[3] },
 		HealthBarOrientation = "RIGHT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", 1, -.5 },
+		HealthBackdropPosition = { "BOTTOMLEFT", -17, -48 },
 		HealthBackdropTexture = GetMedia("hp_mid_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
 		HealthCastOverlayColor = { 1, 1, 1, .35 },
 		HealthThreatTexture = GetMedia("hp_mid_case_glow"),
 
+		-- Health Bar Threat
+		HealthThreatSize = { 716, 188 },
+		HealthThreatPosition = { "BOTTOMLEFT", -15, -47 },
+		HealthThreatTexture = GetMedia("hp_low_case_glow"),
+
 		-- Power Crystal
 		PowerBarSize = { 120, 140 },
-		PowerBarPosition = { "BOTTOMLEFT", -101, 38 },
+		PowerBarPosition = { "BOTTOMLEFT", 20, 38 },
 		PowerBarTexture = ns.IsWrath and GetMedia("power-crystal-ice-front") or GetMedia("power_crystal_front"),
 		PowerBarTexCoord = { 50/255, 206/255, 37/255, 219/255 },
 		PowerBarOrientation = "UP",
@@ -301,9 +323,18 @@ local config = {
 		PowerBarForegroundTexture = GetMedia("pw_crystal_case"),
 		PowerBarForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 
+		-- Power Crystal Threat
+		PowerBarThreatSize = { 196, 196 },
+		PowerBarThreatPosition = { "CENTER", 0, 1 },
+		PowerBarThreatTexture = GetMedia("power_crystal_glow"),
+
+		PowerBackdropThreatSize = { 198,98 },
+		PowerBackdropThreatPosition = { "BOTTOM", 7, -51 },
+		PowerBackdropThreatTexture = GetMedia("pw_crystal_case_glow"),
+
 		-- Mana Orb
 		ManaOrbSize = { 103, 103 },
-		ManaOrbPosition = { "BOTTOMLEFT", -92, 27 },
+		ManaOrbPosition = { "BOTTOMLEFT", 29, 27 },
 		ManaOrbTexture = { GetMedia("orb2"), GetMedia("orb2") },
 
 		ManaOrbBackdropSize = { 180, 180 },
@@ -320,28 +351,38 @@ local config = {
 		ManaOrbForegroundPosition = { "CENTER", 0, 0 },
 		ManaOrbForegroundTexture = GetMedia("orb_case_hi"),
 		ManaOrbForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
+
+		-- Mana Orb Threat
+		ManaOrbThreatSize = { 188, 188 },
+		ManaOrbThreatPosition = { "CENTER", 0, 0 },
+		ManaOrbThreatTexture = GetMedia("orb_case_glow")
 
 	},
 	Seasoned = {
 
 		-- Health Bar
 		HealthBarSize = { 385, 40 },
-		HealthBarPosition = { "BOTTOMLEFT", 27, 27 },
+		HealthBarPosition = { "BOTTOMLEFT", 148, 27 },
 		HealthBarTexture = GetMedia("hp_cap_bar"),
 		HealthBarColor = { Colors.health[1], Colors.health[2], Colors.health[3] },
 		HealthBarOrientation = "RIGHT",
 		HealthBarSparkMap = barSparkMap,
 		HealthBackdropSize = { 716, 188 },
-		HealthBackdropPosition = { "CENTER", 1, -.5 },
+		HealthBackdropPosition = { "BOTTOMLEFT", -17, -48 },
 		HealthBackdropTexture = GetMedia("hp_cap_case"),
 		HealthBackdropColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 		HealthAbsorbColor = { 1, 1, 1, .35 },
 		HealthCastOverlayColor = { 1, 1, 1, .35 },
 		HealthThreatTexture = GetMedia("hp_cap_case_glow"),
 
+		-- Health Bar Threat
+		HealthThreatSize = { 716, 188 },
+		HealthThreatPosition = { "BOTTOMLEFT", -15, -47 },
+		HealthThreatTexture = GetMedia("hp_low_case_glow"),
+
 		-- Power Crystal
 		PowerBarSize = { 120, 140 },
-		PowerBarPosition = { "BOTTOMLEFT", -101, 38 },
+		PowerBarPosition = { "BOTTOMLEFT", 20, 38 },
 		PowerBarTexture = ns.IsWrath and GetMedia("power-crystal-ice-front") or GetMedia("power_crystal_front"),
 		PowerBarTexCoord = { 50/255, 206/255, 37/255, 219/255 },
 		PowerBarOrientation = "UP",
@@ -356,9 +397,18 @@ local config = {
 		PowerBarForegroundTexture = GetMedia("pw_crystal_case"),
 		PowerBarForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
 
+		-- Power Crystal Threat
+		PowerBarThreatSize = { 196, 196 },
+		PowerBarThreatPosition = { "CENTER", 0, 1 },
+		PowerBarThreatTexture = GetMedia("power_crystal_glow"),
+
+		PowerBackdropThreatSize = { 198,98 },
+		PowerBackdropThreatPosition = { "BOTTOM", 7, -51 },
+		PowerBackdropThreatTexture = GetMedia("pw_crystal_case_glow"),
+
 		-- Mana Orb
 		ManaOrbSize = { 103, 103 },
-		ManaOrbPosition = { "BOTTOMLEFT", -92, 27 },
+		ManaOrbPosition = { "BOTTOMLEFT", 29, 27 },
 		ManaOrbTexture = { GetMedia("orb2"), GetMedia("orb2") },
 
 		ManaOrbBackdropSize = { 180, 180 },
@@ -375,6 +425,11 @@ local config = {
 		ManaOrbForegroundPosition = { "CENTER", 0, 0 },
 		ManaOrbForegroundTexture = GetMedia("orb_case_hi"),
 		ManaOrbForegroundColor = { Colors.ui[1], Colors.ui[2], Colors.ui[3] },
+
+		-- Mana Orb Threat
+		ManaOrbThreatSize = { 188, 188 },
+		ManaOrbThreatPosition = { "CENTER", 0, 0 },
+		ManaOrbThreatTexture = GetMedia("orb_case_glow")
 
 	}
 }
@@ -792,6 +847,16 @@ local UnitFrame_UpdateTextures = function(self)
 	cast:SetOrientation(db.HealthBarOrientation)
 	cast:SetSparkMap(db.HealthBarSparkMap)
 
+	local threat = self.ThreatIndicator
+	if (threat) then
+		for key,texture in next,threat.textures do
+			texture:ClearAllPoints()
+			texture:SetPoint(unpack(db[key.."ThreatPosition"]))
+			texture:SetSize(unpack(db[key.."ThreatSize"]))
+			texture:SetTexture(db[key.."ThreatTexture"])
+		end
+	end
+
 end
 
 local UnitFrame_PostUpdate = function(self)
@@ -808,7 +873,6 @@ local UnitFrame_OnEvent = function(self, event, unit, ...)
 
 		self.Power:ForceUpdate()
 		self.AdditionalPower:ForceUpdate()
-
 
 	elseif (event == "PLAYER_SPECIALIZATION_CHANGED") then
 		playerIsRetribution = playerClass == "PALADIN" and (ns.IsRetail and GetSpecialization() == SPEC_PALADIN_RETRIBUTION)
@@ -841,9 +905,8 @@ end
 
 local style = function(self, unit)
 
-	local db = config
-	self:SetSize(unpack(db.Size))
-	self:SetHitRectInsets(unpack(db.HitRectInsets))
+	self:SetSize(unpack(config.Size))
+	self:SetHitRectInsets(unpack(config.HitRectInsets))
 	self:SetFrameLevel(self:GetFrameLevel() + 2)
 	self:SetIgnoreParentAlpha(true)
 
@@ -909,13 +972,13 @@ local style = function(self, unit)
 	-- Cast Name
 	--------------------------------------------
 	local castText = healthOverlay:CreateFontString(nil, "OVERLAY", nil, 1)
-	castText:SetPoint(unpack(db.HealthValuePosition))
-	castText:SetFontObject(db.HealthValueFont)
-	castText:SetTextColor(unpack(db.CastBarTextColor))
-	castText:SetJustifyH(db.HealthValueJustifyH)
-	castText:SetJustifyV(db.HealthValueJustifyV)
+	castText:SetPoint(unpack(config.HealthValuePosition))
+	castText:SetFontObject(config.HealthValueFont)
+	castText:SetTextColor(unpack(config.CastBarTextColor))
+	castText:SetJustifyH(config.HealthValueJustifyH)
+	castText:SetJustifyV(config.HealthValueJustifyV)
 	castText:Hide()
-	castText.color = db.CastBarTextColor
+	castText.color = config.CastBarTextColor
 	castText.colorProtected = Colors.CastBarTextProtectedColor
 
 	self.Castbar.Text = castText
@@ -924,11 +987,11 @@ local style = function(self, unit)
 	-- Cast Time
 	--------------------------------------------
 	local castTime = healthOverlay:CreateFontString(nil, "OVERLAY", nil, 1)
-	castTime:SetPoint(unpack(db.CastBarValuePosition))
-	castTime:SetFontObject(db.CastBarValueFont)
-	castTime:SetTextColor(unpack(db.CastBarTextColor))
-	castTime:SetJustifyH(db.CastBarValueJustifyH)
-	castTime:SetJustifyV(db.CastBarValueJustifyV)
+	castTime:SetPoint(unpack(config.CastBarValuePosition))
+	castTime:SetFontObject(config.CastBarValueFont)
+	castTime:SetTextColor(unpack(config.CastBarTextColor))
+	castTime:SetJustifyH(config.CastBarValueJustifyH)
+	castTime:SetJustifyV(config.CastBarValueJustifyV)
 	castTime:Hide()
 
 	self.Castbar.Time = castTime
@@ -939,11 +1002,11 @@ local style = function(self, unit)
 	-- Health Value
 	--------------------------------------------
 	local healthValue = healthOverlay:CreateFontString(nil, "OVERLAY", nil, 1)
-	healthValue:SetPoint(unpack(db.HealthValuePosition))
-	healthValue:SetFontObject(db.HealthValueFont)
-	healthValue:SetTextColor(unpack(db.HealthValueColor))
-	healthValue:SetJustifyH(db.HealthValueJustifyH)
-	healthValue:SetJustifyV(db.HealthValueJustifyV)
+	healthValue:SetPoint(unpack(config.HealthValuePosition))
+	healthValue:SetFontObject(config.HealthValueFont)
+	healthValue:SetTextColor(unpack(config.HealthValueColor))
+	healthValue:SetJustifyH(config.HealthValueJustifyH)
+	healthValue:SetJustifyV(config.HealthValueJustifyV)
 	if (ns.IsRetail) then
 		self:Tag(healthValue, prefix("[*:Health]  [*:Absorb]"))
 	else
@@ -975,7 +1038,7 @@ local style = function(self, unit)
 	self.Power.PostUpdateColor = not ns.IsWrath and Power_PostUpdateColor
 
 	local powerBackdrop = power:CreateTexture(nil, "BACKGROUND", nil, -2)
-	local powerCase = power:CreateTexture(nil, "ARTWORK", nil, 1)
+	local powerCase = power:CreateTexture(nil, "ARTWORK", nil, 2)
 
 	self.Power.Backdrop = powerBackdrop
 	self.Power.Case = powerCase
@@ -983,11 +1046,11 @@ local style = function(self, unit)
 	-- Power Value
 	--------------------------------------------
 	local powerValue = power:CreateFontString(nil, "OVERLAY", nil, 1)
-	powerValue:SetPoint(unpack(db.PowerValuePosition))
-	powerValue:SetFontObject(db.PowerValueFont)
-	powerValue:SetTextColor(unpack(db.PowerValueColor))
-	powerValue:SetJustifyH(db.PowerValueJustifyH)
-	powerValue:SetJustifyV(db.PowerValueJustifyV)
+	powerValue:SetPoint(unpack(config.PowerValuePosition))
+	powerValue:SetFontObject(config.PowerValueFont)
+	powerValue:SetTextColor(unpack(config.PowerValueColor))
+	powerValue:SetJustifyH(config.PowerValueJustifyH)
+	powerValue:SetJustifyV(config.PowerValueJustifyV)
 	self:Tag(powerValue, prefix("[*:Power]"))
 
 	self.Power.Value = powerValue
@@ -996,11 +1059,11 @@ local style = function(self, unit)
 	-- *when mana isn't primary resource
 	--------------------------------------------
 	local manaText = power:CreateFontString(nil, "OVERLAY", nil, 1)
-	manaText:SetPoint(unpack(db.ManaTextPosition))
-	manaText:SetFontObject(db.ManaTextFont)
-	manaText:SetTextColor(unpack(db.ManaTextColor))
-	manaText:SetJustifyH(db.ManaTextJustifyH)
-	manaText:SetJustifyV(db.ManaTextJustifyV)
+	manaText:SetPoint(unpack(config.ManaTextPosition))
+	manaText:SetFontObject(config.ManaTextFont)
+	manaText:SetTextColor(unpack(config.ManaTextColor))
+	manaText:SetJustifyH(config.ManaTextJustifyH)
+	manaText:SetJustifyV(config.ManaTextJustifyV)
 	self:Tag(manaText, prefix("[*:ManaText:Low]"))
 
 	self.Power.ManaText = manaText
@@ -1031,11 +1094,11 @@ local style = function(self, unit)
 	-- Mana Orb Value
 	--------------------------------------------
 	local manaValue = manaCaseFrame:CreateFontString(nil, "OVERLAY", nil, 1)
-	manaValue:SetPoint(unpack(db.ManaValuePosition))
-	manaValue:SetFontObject(db.ManaValueFont)
-	manaValue:SetTextColor(unpack(db.ManaValueColor))
-	manaValue:SetJustifyH(db.ManaValueJustifyH)
-	manaValue:SetJustifyV(db.ManaValueJustifyV)
+	manaValue:SetPoint(unpack(config.ManaValuePosition))
+	manaValue:SetFontObject(config.ManaValueFont)
+	manaValue:SetTextColor(unpack(config.ManaValueColor))
+	manaValue:SetJustifyH(config.ManaValueJustifyH)
+	manaValue:SetJustifyV(config.ManaValueJustifyV)
 	self:Tag(manaValue, prefix("[*:Mana]"))
 
 	self.AdditionalPower.Value = manaValue
@@ -1043,21 +1106,21 @@ local style = function(self, unit)
 	-- CombatFeedback Text
 	--------------------------------------------
 	local feedbackText = overlay:CreateFontString(nil, "OVERLAY")
-	feedbackText:SetPoint(db.CombatFeedbackPosition[1], self[db.CombatFeedbackAnchorElement], unpack(db.CombatFeedbackPosition))
-	feedbackText:SetFontObject(db.CombatFeedbackFont)
-	feedbackText.feedbackFont = db.CombatFeedbackFont
-	feedbackText.feedbackFontLarge = db.CombatFeedbackFontLarge
-	feedbackText.feedbackFontSmall = db.CombatFeedbackFontSmall
+	feedbackText:SetPoint(config.CombatFeedbackPosition[1], self[config.CombatFeedbackAnchorElement], unpack(config.CombatFeedbackPosition))
+	feedbackText:SetFontObject(config.CombatFeedbackFont)
+	feedbackText.feedbackFont = config.CombatFeedbackFont
+	feedbackText.feedbackFontLarge = config.CombatFeedbackFontLarge
+	feedbackText.feedbackFontSmall = config.CombatFeedbackFontSmall
 
 	self.CombatFeedback = feedbackText
 
 	-- Combat Indicator
 	--------------------------------------------
 	local combatIndicator = overlay:CreateTexture(nil, "OVERLAY", nil, -2)
-	combatIndicator:SetSize(unpack(db.CombatIndicatorSize))
-	combatIndicator:SetPoint(unpack(db.CombatIndicatorPosition))
-	combatIndicator:SetTexture(db.CombatIndicatorTexture)
-	combatIndicator:SetVertexColor(unpack(db.CombatIndicatorColor))
+	combatIndicator:SetSize(unpack(config.CombatIndicatorSize))
+	combatIndicator:SetPoint(unpack(config.CombatIndicatorPosition))
+	combatIndicator:SetTexture(config.CombatIndicatorTexture)
+	combatIndicator:SetVertexColor(unpack(config.CombatIndicatorColor))
 
 	self.CombatIndicator = combatIndicator
 	self.CombatIndicator.PostUpdate = CombatIndicator_PostUpdate
@@ -1065,34 +1128,68 @@ local style = function(self, unit)
 	-- PvP Indicator
 	--------------------------------------------
 	local PvPIndicator = overlay:CreateTexture(nil, "OVERLAY", nil, -2)
-	PvPIndicator:SetSize(unpack(db.PvPIndicatorSize))
-	PvPIndicator:SetPoint(unpack(db.PvPIndicatorPosition))
-	PvPIndicator.Alliance = db.PvPIndicatorAllianceTexture
-	PvPIndicator.Horde = db.PvPIndicatorHordeTexture
+	PvPIndicator:SetSize(unpack(config.PvPIndicatorSize))
+	PvPIndicator:SetPoint(unpack(config.PvPIndicatorPosition))
+	PvPIndicator.Alliance = config.PvPIndicatorAllianceTexture
+	PvPIndicator.Horde = config.PvPIndicatorHordeTexture
 
 	self.PvPIndicator = PvPIndicator
 	self.PvPIndicator.Override = PvPIndicator_Override
 
+	-- Threat Indicator
+	--------------------------------------------
+	local threatIndicator = CreateFrame("Frame", nil, self)
+	threatIndicator:SetFrameLevel(self:GetFrameLevel() - 2)
+	threatIndicator:SetAllPoints()
+
+	threatIndicator.textures = {
+		Health = threatIndicator:CreateTexture(nil, "BACKGROUND", nil, -3),
+		PowerBar = power:CreateTexture(nil, "BACKGROUND", nil, -3),
+		PowerBackdrop = power:CreateTexture(nil, "ARTWORK", nil, 1),
+		ManaOrb = mana:CreateTexture(nil, "BACKGROUND", nil, -3),
+	}
+	threatIndicator.Show = function(self)
+		self.isShown = true
+		for key,texture in next,self.textures do
+			texture:Show()
+		end
+	end
+	threatIndicator.Hide = function(self)
+		self.isShown = nil
+		for key,texture in next,self.textures do
+			texture:Hide()
+		end
+	end
+	threatIndicator.PostUpdate = function(self, unit, status, r, g, b)
+		if (self.isShown) then
+			for key,texture in next,self.textures do
+				texture:SetVertexColor(r, g, b)
+			end
+		end
+	end
+
+	self.ThreatIndicator = threatIndicator
+
 	-- Auras
 	--------------------------------------------
 	local auras = CreateFrame("Frame", nil, self)
-	auras:SetSize(unpack(db.AurasSize))
-	auras:SetPoint(unpack(db.AurasPosition))
-	auras.size = db.AuraSize
-	auras.spacing = db.AuraSpacing
-	auras.numTotal = db.AurasNumTotal
-	auras.disableMouse = db.AurasDisableMouse
-	auras.disableCooldown = db.AurasDisableCooldown
-	auras.onlyShowPlayer = db.AurasOnlyShowPlayer
-	auras.showStealableBuffs = db.AurasShowStealableBuffs
-	auras.initialAnchor = db.AurasInitialAnchor
-	auras["spacing-x"] = db.AurasSpacingX
-	auras["spacing-y"] = db.AurasSpacingY
-	auras["growth-x"] = db.AurasGrowthX
-	auras["growth-y"] = db.AurasGrowthY
-	auras.tooltipAnchor = db.AurasTooltipAnchor
-	auras.sortMethod = db.AurasSortMethod
-	auras.sortDirection = db.AurasSortDirection
+	auras:SetSize(unpack(config.AurasSize))
+	auras:SetPoint(unpack(config.AurasPosition))
+	auras.size = config.AuraSize
+	auras.spacing = config.AuraSpacing
+	auras.numTotal = config.AurasNumTotal
+	auras.disableMouse = config.AurasDisableMouse
+	auras.disableCooldown = config.AurasDisableCooldown
+	auras.onlyShowPlayer = config.AurasOnlyShowPlayer
+	auras.showStealableBuffs = config.AurasShowStealableBuffs
+	auras.initialAnchor = config.AurasInitialAnchor
+	auras["spacing-x"] = config.AurasSpacingX
+	auras["spacing-y"] = config.AurasSpacingY
+	auras["growth-x"] = config.AurasGrowthX
+	auras["growth-y"] = config.AurasGrowthY
+	auras.tooltipAnchor = config.AurasTooltipAnchor
+	auras.sortMethod = config.AurasSortMethod
+	auras.sortDirection = config.AurasSortDirection
 	auras.CreateButton = ns.AuraStyles.CreateButton
 	auras.reanchorIfVisibleChanged = true
 	auras.PostUpdateButton = ns.AuraStyles.PlayerPostUpdateButton
@@ -1109,27 +1206,27 @@ local style = function(self, unit)
 	-- Feast of Winter Veil
 	if (ns.API.IsWinterVeil()) then
 		local winterVeilPower = power:CreateTexture(nil, "OVERLAY", nil, 0)
-		winterVeilPower:SetSize(unpack(db.Seasonal.WinterVeilPowerSize))
-		winterVeilPower:SetPoint(unpack(db.Seasonal.WinterVeilPowerPlace))
-		winterVeilPower:SetTexture(db.Seasonal.WinterVeilPowerTexture)
+		winterVeilPower:SetSize(unpack(config.Seasonal.WinterVeilPowerSize))
+		winterVeilPower:SetPoint(unpack(config.Seasonal.WinterVeilPowerPlace))
+		winterVeilPower:SetTexture(config.Seasonal.WinterVeilPowerTexture)
 
 		self.Power.WinterVeil = winterVeilPower
 
 		local winterVeilMana = manaCaseFrame:CreateTexture(nil, "OVERLAY", nil, 0)
-		winterVeilMana:SetSize(unpack(db.Seasonal.WinterVeilManaSize))
-		winterVeilMana:SetPoint(unpack(db.Seasonal.WinterVeilManaPlace))
-		winterVeilMana:SetTexture(db.Seasonal.WinterVeilManaTexture)
+		winterVeilMana:SetSize(unpack(config.Seasonal.WinterVeilManaSize))
+		winterVeilMana:SetPoint(unpack(config.Seasonal.WinterVeilManaPlace))
+		winterVeilMana:SetTexture(config.Seasonal.WinterVeilManaTexture)
 
 		self.AdditionalPower.WinterVeil = winterVeilMana
 	end
 
 	-- Love is in the Air
 	if (ns.API.IsLoveFestival()) then
-		combatIndicator:SetSize(unpack(db.Seasonal.LoveFestivalCombatIndicatorSize))
+		combatIndicator:SetSize(unpack(config.Seasonal.LoveFestivalCombatIndicatorSize))
 		combatIndicator:ClearAllPoints()
-		combatIndicator:SetPoint(unpack(db.Seasonal.LoveFestivalCombatIndicatorPosition))
-		combatIndicator:SetTexture(db.Seasonal.LoveFestivalCombatIndicatorTexture)
-		combatIndicator:SetVertexColor(unpack(db.Seasonal.LoveFestivalCombatIndicatorColor))
+		combatIndicator:SetPoint(unpack(config.Seasonal.LoveFestivalCombatIndicatorPosition))
+		combatIndicator:SetTexture(config.Seasonal.LoveFestivalCombatIndicatorTexture)
+		combatIndicator:SetVertexColor(unpack(config.Seasonal.LoveFestivalCombatIndicatorColor))
 	end
 
 	-- Register events to handle texture updates.
@@ -1153,8 +1250,6 @@ end
 
 PlayerFrameMod.Spawn = function(self)
 
-	-- UnitFrame
-	---------------------------------------------------
 	local unit, name = "player", "Player"
 
 	oUF:RegisterStyle(ns.Prefix..name, style)
@@ -1167,14 +1262,13 @@ PlayerFrameMod.Spawn = function(self)
 	local anchor = MFM:RequestAnchor()
 	anchor:SetTitle(HUD_EDIT_MODE_PLAYER_FRAME_LABEL or PLAYER)
 	anchor:SetScalable(true)
-	anchor:SetMinMaxScale(.75, 1.25, .05)
+	anchor:SetMinMaxScale(.25, 2.5, .05)
 	anchor:SetSize(560, 180)
-	anchor:SetPoint(unpack(defaults.profile.savedPosition.Azerite))
-	anchor:SetScale(defaults.profile.savedPosition.Azerite.scale)
-	anchor.frameOffsetX = 121
-	anchor.frameOffsetY = 0
-	anchor.framePoint = "BOTTOMLEFT"
-	anchor.Callback = function(anchor, ...) self:OnAnchorUpdate(...) end
+	anchor:SetPoint(unpack(defaults.profile.savedPosition[MFM:GetDefaultLayout()]))
+	anchor:SetScale(defaults.profile.savedPosition[MFM:GetDefaultLayout()].scale)
+	anchor:SetDefaultScale(ns.API.GetEffectiveScale)
+	anchor.PreUpdate = function() self:UpdateAnchor() end
+	anchor.UpdateDefaults = function() self:UpdateDefaults() end
 
 	self.anchor = anchor
 end
@@ -1186,9 +1280,7 @@ PlayerFrameMod.OnInitialize = function(self)
 
 	-- Register the available layout names
 	-- with the movable frames manager.
-	if (MFM) then
-		MFM:RegisterPresets(self.db.profile.savedPosition)
-	end
+	MFM:RegisterPresets(self.db.profile.savedPosition)
 
 	-- Disable Blizzard player frame.
 	oUF:DisableBlizzard("player")

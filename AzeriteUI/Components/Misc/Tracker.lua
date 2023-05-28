@@ -29,6 +29,7 @@ if (not ns.IsRetail) then return end
 LoadAddOn("Blizzard_ObjectiveTracker")
 
 local Tracker = ns:NewModule("Tracker", "LibMoreEvents-1.0", "AceHook-3.0", "AceConsole-3.0")
+local MFM = ns:GetModule("MovableFramesManager")
 
 -- WoW API
 local IsAddOnLoaded = IsAddOnLoaded
@@ -52,7 +53,7 @@ local Custom = {}
 -- currently just the keys need to exist though.
 local Skins = {
 	Blizzard = {},
-	Azerite = {}
+	[MFM:GetDefaultLayout()] = {}
 }
 
 local defaults = { profile = ns:Merge({

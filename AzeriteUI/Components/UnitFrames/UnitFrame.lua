@@ -26,11 +26,25 @@
 local Addon, ns = ...
 local oUF = ns.oUF
 
+local UnitFrameMod = ns:NewModule("UnitFrames", "LibMoreEvents-1.0")
+
+local MFM = ns:GetModule("MovableFramesManager")
+local GUI = ns:GetModule("Options")
+
 local LibSmoothBar = LibStub("LibSmoothBar-1.0")
 local LibSpinBar = LibStub("LibSpinBar-1.0")
 local LibOrb = LibStub("LibOrb-1.0")
 
+-- Lua API
 local next = next
+
+-- Private API
+local Colors = ns.Colors
+
+local defaults = { profile = ns:Merge({
+	enabled = true,
+	disableAuraSorting = false
+}, ns.moduleDefaults) }
 
 -- UnitFrame Callbacks
 ---------------------------------------------------
@@ -70,7 +84,7 @@ local UnitFrame_OnHide = function(self, ...)
 end
 
 -- UnitFrame Module Defauts
-local defaults = {
+local unitFrameDefaults = {
 	enabled = true,
 	scale = 1
 }
@@ -83,7 +97,7 @@ oUF:RegisterMetaFunction("CreateOrb", UnitFrame_CreateOrb)
 
 ns.UnitFrames = {}
 ns.UnitFrame = {}
-ns.UnitFrame.defaults = defaults
+ns.UnitFrame.defaults = unitFrameDefaults
 
 ns.UnitFrame.InitializeUnitFrame = function(self)
 
@@ -111,16 +125,35 @@ end
 ---------------------------------------------------
 ns.UnitFrame.modulePrototype = {
 	OnEnable = function(self)
+		if (self.UpdateDefaults) then
+			self:UpdateDefaults()
+		end
+
 		local frame = self.frame
 		if (frame and frame.Enable) then
 			frame:Enable()
 		else
 			if (self.Spawn) then
 				self:Spawn()
+
+				if (self.anchor) then
+					local r, g, b = unpack(Colors.anchor.unitframes)
+					self.anchor.Overlay:SetBackdropColor(r, g, b, .75)
+					self.anchor.Overlay:SetBackdropBorderColor(r, g, b, 1)
+				end
 			end
 		end
-		self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatEvent")
-		self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatEvent")
+
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
+		self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnEvent")
+		self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnEvent")
+
+		ns.RegisterCallback(self, "MFM_LayoutDeleted", "OnEvent")
+		ns.RegisterCallback(self, "MFM_LayoutsUpdated", "OnEvent")
+		ns.RegisterCallback(self, "MFM_PositionUpdated", "OnEvent")
+		ns.RegisterCallback(self, "MFM_AnchorShown", "OnEvent")
+		ns.RegisterCallback(self, "MFM_ScaleUpdated", "OnEvent")
+		ns.RegisterCallback(self, "MFM_Dragging", "OnEvent")
 	end,
 
 	OnDisable = function(self)
@@ -128,138 +161,184 @@ ns.UnitFrame.modulePrototype = {
 		if (frame and frame.Disable) then
 			frame:Disable()
 		end
-		self:UnregisterEvent("PLAYER_REGEN_DISABLED", "OnCombatEvent")
-		self:UnregisterEvent("PLAYER_REGEN_ENABLED", "OnCombatEvent")
+
+		self:UnregisterEvent("PLAYER_ENTERING_WORLD", "OnEvent")
+		self:UnregisterEvent("PLAYER_REGEN_DISABLED", "OnEvent")
+		self:UnregisterEvent("PLAYER_REGEN_ENABLED", "OnEvent")
+
+		ns.UnregisterCallback(self, "MFM_LayoutDeleted", "OnEvent")
+		ns.UnregisterCallback(self, "MFM_LayoutsUpdated", "OnEvent")
+		ns.UnregisterCallback(self, "MFM_PositionUpdated", "OnEvent")
+		ns.UnregisterCallback(self, "MFM_AnchorShown", "OnEvent")
+		ns.UnregisterCallback(self, "MFM_ScaleUpdated", "OnEvent")
+		ns.UnregisterCallback(self, "MFM_Dragging", "OnEvent")
 	end,
 
-	OnCombatEvent = function(self, event, ...)
-		if (event == "PLAYER_REGEN_ENABLED") then
+	OnEvent = function(self, event, ...)
+		if (event == "PLAYER_ENTERING_WORLD") then
+			self.incombat = nil
+			self:UpdatePositionAndScale()
+
+		elseif (event == "PLAYER_REGEN_ENABLED") then
 			if (InCombatLockdown()) then return end
 			self.incombat = nil
-			if (self.positionNeedsFix) then
+			if (self.needupdate) then
 				self:UpdatePositionAndScale()
 			end
+
 		elseif (event == "PLAYER_REGEN_DISABLED") then
 			self.incombat = true
-		end
-	end,
 
-	OnAnchorUpdate = function(self, reason, layoutName, ...)
-		local savedPositions = self.db.profile.savedPosition
-		local defaultPositions = self.db.defaults.profile.savedPosition
-		local lockdown = InCombatLockdown()
+		elseif (event == "MFM_LayoutsUpdated") then
+			local LAYOUT = ...
 
-		if (reason == "LayoutDeleted") then
-			if (savedPositions[layoutName]) then
-				savedPositions[layoutName] = nil
+			if (not self.db.profile.savedPosition[LAYOUT]) then
+				self.db.profile.savedPosition[LAYOUT] = ns:Merge({}, unitFrameDefaults.profile.savedPosition[MFM:GetDefaultLayout()])
 			end
 
-		elseif (reason == "LayoutsUpdated") then
+			self:UpdatePositionAndScale()
+			self:UpdateAnchor()
 
-			if (savedPositions[layoutName]) then
+			GUI:Refresh("unitframes")
 
-				self.anchor:SetScale(savedPositions[layoutName].scale or self.anchor:GetScale())
-				self.anchor:ClearAllPoints()
-				self.anchor:SetPoint(unpack(savedPositions[layoutName]))
+		elseif (event == "MFM_LayoutDeleted") then
+			local LAYOUT = ...
 
-				local defaultPosition = self.db.defaults.profile.savedPosition[layoutName] or defaultPositions.Azerite
-				if (defaultPosition) then
-					self.anchor:SetDefaultPosition(unpack(defaultPosition))
-				end
+			self.db.profile.savedPosition[LAYOUT] = nil
 
-				self.initialPositionSet = true
-					--self.currentLayout = layoutName
+		elseif (event == "MFM_PositionUpdated") then
+			local LAYOUT, anchor, point, x, y = ...
 
-			else
-				-- The user is unlikely to have a preset with our name
-				-- on the first time logging in.
-				if (not self.initialPositionSet) then
+			if (anchor ~= self.anchor) then return end
 
-					local defaultPosition = defaultPositions.Azerite
-
-					self.anchor:SetScale(defaultPosition.scale)
-					self.anchor:ClearAllPoints()
-					self.anchor:SetPoint(unpack(defaultPosition))
-					self.anchor:SetDefaultPosition(unpack(defaultPosition))
-
-					self.initialPositionSet = true
-					--self.currentLayout = layoutName
-				end
-
-				savedPositions[layoutName] = { self.anchor:GetPosition() }
-				savedPositions[layoutName].scale = self.anchor:GetScale()
-			end
-
-			self.currentLayout = layoutName
+			self.db.profile.savedPosition[LAYOUT][1] = point
+			self.db.profile.savedPosition[LAYOUT][2] = x
+			self.db.profile.savedPosition[LAYOUT][3] = y
 
 			self:UpdatePositionAndScale()
 
-		elseif (reason == "PositionUpdated") then
-			-- Fires when position has been changed.
-			local point, x, y = ...
+			GUI:Refresh("unitframes")
 
-			savedPositions[layoutName] = { point, x, y }
-			savedPositions[layoutName].scale = self.anchor:GetScale()
+		elseif (event == "MFM_AnchorShown") then
+			local LAYOUT, anchor, point, x, y = ...
 
+			if (anchor ~= self.anchor) then return end
+
+		elseif (event == "MFM_ScaleUpdated") then
+			local LAYOUT, anchor, scale = ...
+
+			if (anchor ~= self.anchor) then return end
+
+			self.db.profile.savedPosition[LAYOUT].scale = scale
 			self:UpdatePositionAndScale()
 
-		elseif (reason == "ScaleUpdated") then
-			-- Fires when scale has been mousewheel updated.
-			local scale = ...
+			GUI:Refresh("unitframes")
 
-			savedPositions[layoutName].scale = scale
-
-			self:UpdatePositionAndScale()
-
-		elseif (reason == "Dragging") then
-			-- Fires on every drag update. Spammy.
+		elseif (event == "MFM_Dragging") then
 			if (not self.incombat) then
-				self:OnAnchorUpdate("PositionUpdated", layoutName, ...)
+				if (select(2, ...) ~= self.anchor) then return end
+
+				self:OnEvent("MFM_PositionUpdated", ...)
 			end
-
-		elseif (reason == "CombatStart") then
-			-- Fires right before combat lockdown for visible anchors.
-
-
-		elseif (reason == "CombatEnd") then
-			-- Fires when combat lockdown ends for visible anchors.
-
 		end
 	end,
 
 	UpdatePositionAndScale = function(self)
 		if (InCombatLockdown()) then
-			self.positionNeedsFix = true
+			self.needupdate = true
 			return
 		end
 		if (not self.frame) then return end
 
-		local savedPosition = self.currentLayout and self.db.profile.savedPosition[self.currentLayout]
-		if (savedPosition) then
-			local point, x, y = unpack(savedPosition)
-			local scale = savedPosition.scale
-			local frame = self.frame
-			local anchor = self.anchor
+		local config = self.db.profile.savedPosition[MFM:GetLayout()]
 
-			-- Set the scale before positioning,
-			-- or everything will be wonky.
-			frame:SetScale(scale * ns.API.GetDefaultElementScale())
+		self.frame:SetScale(config.scale)
+		self.frame:ClearAllPoints()
+		self.frame:SetPoint(config[1], UIParent, config[1], config[2]/config.scale, config[3]/config.scale)
+	end,
 
-			if (anchor and anchor.framePoint) then
-				-- Position the frame at the anchor,
-				-- with the given point and offsets.
-				frame:ClearAllPoints()
-				frame:SetPoint(anchor.framePoint, anchor, anchor.framePoint, (anchor.frameOffsetX or 0)/scale, (anchor.frameOffsetY or 0)/scale)
+	UpdateAnchor = function(self)
+		if (not self.anchor) then return end
 
-				-- Parse where this actually is relative to UIParent
-				local point, x, y = ns.API.GetPosition(frame)
+		local config = self.db.profile.savedPosition[MFM:GetLayout()]
 
-				-- Reposition the frame relative to UIParent,
-				-- to avoid it being hooked to our anchor in combat.
-				frame:ClearAllPoints()
-				frame:SetPoint(point, UIParent, point, x, y)
+		self.anchor:SetSize(self.frame:GetSize())
+		self.anchor:SetScale(config.scale)
+		self.anchor:ClearAllPoints()
+		self.anchor:SetPoint(config[1], UIParent, config[1], config[2], config[3])
+	end,
+
+	UpdateDefaults = function(self)
+		if (not self.anchor or not self.db) then return end
+
+		local defaults = self.db.defaults.profile.savedPosition[MFM:GetDefaultLayout()]
+		if (not defaults) then return end
+
+		defaults.scale = self.anchor:GetDefaultScale()
+		defaults[1], defaults[2], defaults[3] = self.anchor:GetDefaultPosition()
+	end,
+
+	UpdateSettings = function(self)
+		self:UpdatePositionAndScale()
+	end
+
+}
+
+UnitFrameMod.UpdateSettings = function(self)
+
+	if (self.db.profile.disableAuraSorting) then
+
+		-- Iterate through unitframes.
+		for frame in next,ns.UnitFrames do
+			local auras = frame.Auras
+			if (auras) then
+				auras.PreSetPosition = ns.AuraSorts.Alternate -- only in classic
+				auras.SortAuras = ns.AuraSorts.AlternateFuncton -- only in retail
+				auras:ForceUpdate()
+			end
+		end
+
+		-- Iterate through nameplates.
+		for frame in next,ns.NamePlates do
+			local auras = frame.Auras
+			if (auras) then
+				auras.PreSetPosition = ns.AuraSorts.Alternate -- only in classic
+				auras.SortAuras = ns.AuraSorts.AlternateFuncton -- only in retail
+				auras:ForceUpdate()
+			end
+		end
+	else
+
+		-- Iterate through unitframes.
+		for frame in next,ns.UnitFrames do
+			local auras = frame.Auras
+			if (auras) then
+				auras.PreSetPosition = ns.AuraSorts.Default -- only in classic
+				auras.SortAuras = ns.AuraSorts.DefaultFunction -- only in retail
+				auras:ForceUpdate()
+			end
+		end
+
+		-- Iterate through nameplates.
+		for frame in next,ns.NamePlates do
+			local auras = frame.Auras
+			if (auras) then
+				auras.PreSetPosition = ns.AuraSorts.Default -- only in classic
+				auras.SortAuras = ns.AuraSorts.DefaultFunction -- only in retail
+				auras:ForceUpdate()
 			end
 		end
 
 	end
-}
+
+end
+
+UnitFrameMod.OnInitialize = function(self)
+	self.db = ns.db:RegisterNamespace("UnitFrames", defaults)
+
+	self:SetEnabledState(self.db.profile.enabled)
+end
+
+UnitFrameMod.OnEnable = function(self)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateSettings")
+end
